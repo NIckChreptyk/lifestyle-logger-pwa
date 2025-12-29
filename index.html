@@ -383,38 +383,44 @@
     }
 
     // Actions
-    submitBtn.addEventListener('click', async () => {
-      try {
-        const val =
-          (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
-          (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
-          inputEl.value;
-
-        if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
-          toast('Enter a value first');
-          return;
-        }
-
-        const res = await apiPostLog({
-          item_key: item.item_key,
-          value: val,
-          units: units || '',
-          notes: ''
-        });
-        
-        toast(JSON.stringify(res));
-        console.log('log response:', res);
-
-        if (res.status === 'ok') toast('Saved');
-        else if (res.status === 'duplicate_ignored') toast('Already logged today');
-        else toast('Saved (check response)');
-
-        await loadAndRender();
-      } catch (e) {
-        toast('Save failed: ' + (e?.message || 'unknown'));
-        console.error(e);
+  submitBtn.addEventListener('click', async () => {
+    try {
+      const val =
+        (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
+        (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
+        inputEl.value;
+  
+      if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
+        toast('Enter a value first');
+        return;
       }
-    });
+  
+      const res = await apiPostLog({
+        item_key: item.item_key,
+        value: val,
+        units: units || '',
+        notes: ''
+      });
+  
+      // ===== DEBUG MODE (temporary) =====
+      // Show EXACT response so we can see why it isn't writing / clearing
+      toast('API response: ' + JSON.stringify(res));
+      console.log('API response:', res);
+      return;
+      // ===== END DEBUG MODE =====
+  
+      // Normal behavior (re-enable after debug)
+      // if (res.status === 'ok') toast('Saved');
+      // else if (res.status === 'duplicate_ignored') toast('Already logged today');
+      // else toast('Saved (check response)');
+  
+      // await loadAndRender();
+    } catch (e) {
+      toast('Save failed: ' + (e?.message || 'unknown'));
+      console.error(e);
+    }
+  });
+
 
     // UI-only clear (per your spec)
     clearBtn.addEventListener('click', async () => {
@@ -522,6 +528,7 @@
 </script>
 </body>
 </html>
+
 
 
 
