@@ -6,52 +6,121 @@
   <meta name="theme-color" content="#0b0b0b" />
   <link rel="manifest" href="/manifest.json" />
   <title>Life Logger</title>
+
   <style>
-  body{font-family:system-ui,Arial;margin:0;background:#0b0b0b;color:#f2f2f2}
-  header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #222}
-  main{padding:16px;max-width:720px;margin:0 auto}
+    /* =========================
+      GLOBAL LAYOUT + THEME
+    ========================== */
+    body{font-family:system-ui,Arial;margin:0;background:#0b0b0b;color:#f2f2f2}
+    header{display:flex;justify-content:space-between;align-items:center;padding:14px 16px;border-bottom:1px solid #222}
+    main{padding:16px;max-width:720px;margin:0 auto}
+    a{color:#cfcfcf}
 
-  .sectionTitle{margin:18px 0 10px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
-  .card{border:1px solid #222;border-radius:14px;padding:12px;margin-bottom:10px;background:#121212}
-  .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:nowrap}
-  .label{font-weight:800;font-size:18px}
-  .hint{color:#bdbdbd;font-size:12px;margin-top:6px}
-  .muted{color:#bdbdbd}
-  .small{font-size:12px}
-  .danger{color:#ffb3b3}
-  a{color:#cfcfcf}
+    /* =========================
+      TYPOGRAPHY + UTILITIES
+    ========================== */
+    .sectionTitle{margin:18px 0 10px;font-weight:900;letter-spacing:.12em;text-transform:uppercase}
+    .label{font-weight:800;font-size:18px}
+    .hint{color:#bdbdbd;font-size:12px;margin-top:8px}
+    .muted{color:#bdbdbd}
+    .small{font-size:12px}
+    .danger{color:#ffb3b3}
 
-  input[type="number"],input[type="text"],select{background:#0b0b0b;color:#f2f2f2;border:1px solid #2a2a2a;border-radius:10px;padding:10px;width:92px;min-width:92px;text-align:right}
-  button{background:#1f1f1f;color:#f2f2f2;border:1px solid #2a2a2a;border-radius:12px;padding:10px 12px;cursor:pointer}
-  button.primary{background:#2b2b2b}
-  .actionsRow{display:flex;gap:10px;justify-content:flex-end;flex-wrap:nowrap}
+    /* =========================
+      CARDS + ROWS
+    ========================== */
+    .card{border:1px solid #222;border-radius:14px;padding:12px;margin-bottom:10px;background:#121212}
+    .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:nowrap}
 
-  .pill{font-size:12px;padding:4px 8px;border:1px solid #2a2a2a;border-radius:999px;color:#cfcfcf}
-  .overdue{border-color:#7a2d2d}
-  details summary{cursor:pointer;color:#cfcfcf}
+    /* =========================
+      INPUTS + BUTTONS
+    ========================== */
+    input[type="number"],input[type="text"],select{
+      background:#0b0b0b;color:#f2f2f2;border:1px solid #2a2a2a;border-radius:10px;
+      padding:10px;width:96px;min-width:96px;text-align:right
+    }
+    input[type="text"]{text-align:left}
+    button{
+      background:#1f1f1f;color:#f2f2f2;border:1px solid #2a2a2a;border-radius:12px;
+      padding:10px 12px;cursor:pointer
+    }
+    button.primary{background:#2b2b2b}
+    .actionsRow{display:flex;gap:10px;justify-content:flex-end;flex-wrap:nowrap;margin-top:10px}
 
-  .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#121212;border:1px solid #2a2a2a;padding:10px 12px;border-radius:12px;display:none;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  
-  .itemRow{
-    display:grid;
-    grid-template-columns: 1fr auto auto; /* label | status | input */
-    gap:10px;
-    align-items:center;
-  }
-  
-  .itemLabel{min-width:0} /* allows ellipsis */
-  .itemLabel .label{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
-  
-  .itemInputWrap{display:flex; align-items:center; justify-content:flex-end; gap:8px}
-  .itemInputWrap input[type="checkbox"]{margin-left:12px} /* adds breathing room */
+    /* =========================
+      STATUS PILLS + OPTIONAL SECTION
+    ========================== */
+    .pill{font-size:12px;padding:4px 8px;border:1px solid #2a2a2a;border-radius:999px;color:#cfcfcf}
+    .overdue{border-color:#7a2d2d}
+    details summary{cursor:pointer;color:#cfcfcf}
 
-</style>
+    /* =========================
+      TOAST
+    ========================== */
+    .toast{
+      position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
+      background:#121212;border:1px solid #2a2a2a;padding:10px 12px;border-radius:12px;
+      display:none;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+    }
 
+    /* =========================
+      PROFESSIONAL CARD ROW LAYOUT (GRID)
+      Row 1: label | status | input (right aligned)
+    ========================== */
+    .itemRow{
+      display:grid;
+      grid-template-columns: 1fr auto auto; /* label | status | input */
+      gap:10px;
+      align-items:center;
+    }
+    .itemLabel{min-width:0}
+    .itemLabel .label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .itemInputWrap{display:flex;align-items:center;justify-content:flex-end;gap:8px}
+
+    /* =========================
+      TOGGLE SWITCH (for boolean items)
+    ========================== */
+    .toggle{
+      position:relative;
+      width:44px;height:26px;
+      display:inline-block;
+      flex:0 0 auto;
+    }
+    .toggle input{
+      opacity:0;width:0;height:0;
+    }
+    .slider{
+      position:absolute;inset:0;
+      border-radius:999px;
+      background:#1f1f1f;
+      border:1px solid #2a2a2a;
+      transition:all .15s ease;
+    }
+    .slider:before{
+      content:"";
+      position:absolute;
+      height:20px;width:20px;
+      left:3px;top:2px;
+      border-radius:50%;
+      background:#f2f2f2;
+      transition:all .15s ease;
+    }
+    .toggle input:checked + .slider{
+      background:#2b2b2b;
+    }
+    .toggle input:checked + .slider:before{
+      transform:translateX(18px);
+    }
+  </style>
 </head>
+
 <body>
+  <!-- =========================
+    HEADER
+  ========================== -->
   <header>
     <div>
-      <div style="font-weight:800;">Life Logger</div>
+      <div style="font-weight:900;">Life Logger</div>
       <div class="small muted" id="statusLine">Loading…</div>
     </div>
     <div class="row">
@@ -60,12 +129,15 @@
     </div>
   </header>
 
+  <!-- =========================
+    MAIN UI
+  ========================== -->
   <main>
-    <div class="sectionTitle">Required</div>
+    <div class="sectionTitle">REQUIRED</div>
     <div id="requiredList"></div>
 
     <details>
-      <summary class="sectionTitle">Optional</summary>
+      <summary class="sectionTitle">OPTIONAL</summary>
       <div id="optionalList" style="margin-top:10px;"></div>
     </details>
 
@@ -76,9 +148,12 @@
 
   <div class="toast" id="toast"></div>
 
+  <!-- =========================
+    SETTINGS DIALOG
+  ========================== -->
   <dialog id="settingsDlg" style="border:1px solid #2a2a2a;border-radius:16px;background:#121212;color:#f2f2f2;max-width:720px;width:92%;">
     <div class="row" style="margin-bottom:10px;">
-      <div style="font-weight:800;">Settings</div>
+      <div style="font-weight:900;">Settings</div>
       <button id="btnCloseSettings">Close</button>
     </div>
 
@@ -105,150 +180,155 @@
   </dialog>
 
 <script>
-  // ---- PWA registration ----
-  if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('/sw.js').catch(()=>{});
-  }
+/* ============================================================
+  SECTION 1 — PWA
+============================================================ */
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').catch(()=>{});
+}
 
-  // ---- Storage ----
-  const LS_URL = 'lifelogger_api_url';
-  const LS_KEY = 'lifelogger_api_key';
-  const LS_DEVICE_TOKEN = 'lifelogger_device_token';
+/* ============================================================
+  SECTION 2 — STORAGE + CONFIG
+============================================================ */
+const LS_URL = 'lifelogger_api_url';
+const LS_KEY = 'lifelogger_api_key';
+const LS_DEVICE_TOKEN = 'lifelogger_device_token';
 
+const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbxbXijYH9SIsCb5gdVtBpw4Fien3RZKePE1gNf41h1UageDvvk6jg2pOrNrPavSlOjS/exec";
+const DEFAULT_KEY = "lifelogger_fitness_v1_9f3kA72Qm";
 
-  // Defaults (you can override in Settings)
-  const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbxbXijYH9SIsCb5gdVtBpw4Fien3RZKePE1gNf41h1UageDvvk6jg2pOrNrPavSlOjS/exec";
-  const DEFAULT_KEY = "lifelogger_fitness_v1_9f3kA72Qm";
+function getApiConfig() {
+  return {
+    url: localStorage.getItem(LS_URL) || DEFAULT_URL,
+    key: localStorage.getItem(LS_KEY) || DEFAULT_KEY,
+  };
+}
 
-  function getApiConfig() {
-    return {
-      url: localStorage.getItem(LS_URL) || DEFAULT_URL,
-      key: localStorage.getItem(LS_KEY) || DEFAULT_KEY,
-    };
-  }
+/* ============================================================
+  SECTION 3 — SMALL HELPERS
+============================================================ */
+const $ = (id) => document.getElementById(id);
 
-  // ---- Helpers ----
-  const $ = (id) => document.getElementById(id);
+function toast(msg) {
+  const el = $('toast');
+  el.textContent = msg;
+  el.style.display = 'block';
+  clearTimeout(window.__t);
+  window.__t = setTimeout(()=> el.style.display = 'none', 2200);
+}
 
-  function toast(msg) {
-    const el = $('toast');
-    el.textContent = msg;
-    el.style.display = 'block';
-    clearTimeout(window.__t);
-    window.__t = setTimeout(()=> el.style.display = 'none', 2200);
-  }
+function todayYMD() {
+  const d = new Date();
+  const yyyy = d.getFullYear();
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  const dd = String(d.getDate()).padStart(2,'0');
+  return `${yyyy}-${mm}-${dd}`;
+}
 
-  function todayYMD() {
-    const d = new Date();
-    const yyyy = d.getFullYear();
-    const mm = String(d.getMonth()+1).padStart(2,'0');
-    const dd = String(d.getDate()).padStart(2,'0');
-    return `${yyyy}-${mm}-${dd}`;
-  }
-
-  function parseWeekdays(csv) {
-    if (!csv) return [];
-    return csv.split(',').map(s => s.trim().toLowerCase());
-  }
-
-  function weekdayName(d) {
-    return ['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
-  }
-
-  function daysBetween(aYMD, bYMD) {
-    const a = new Date(aYMD + "T00:00:00");
-    const b = new Date(bYMD + "T00:00:00");
-    return Math.floor((b - a) / (1000*60*60*24));
-  }
-
-  function mostRecentScheduledDate(weekdaysLower, refDateYMD) {
-    const ref = new Date(refDateYMD + "T00:00:00");
-    for (let i=0;i<14;i++) {
-      const d = new Date(ref);
-      d.setDate(ref.getDate() - i);
-      const wd = weekdayName(d);
-      if (weekdaysLower.includes(wd)) {
-        const yyyy = d.getFullYear();
-        const mm = String(d.getMonth()+1).padStart(2,'0');
-        const dd = String(d.getDate()).padStart(2,'0');
-        return `${yyyy}-${mm}-${dd}`;
-      }
+function parseWeekdays(csv) {
+  if (!csv) return [];
+  return csv.split(',').map(s => s.trim().toLowerCase());
+}
+function weekdayName(d) {
+  return ['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
+}
+function daysBetween(aYMD, bYMD) {
+  const a = new Date(aYMD + "T00:00:00");
+  const b = new Date(bYMD + "T00:00:00");
+  return Math.floor((b - a) / (1000*60*60*24));
+}
+function mostRecentScheduledDate(weekdaysLower, refDateYMD) {
+  const ref = new Date(refDateYMD + "T00:00:00");
+  for (let i=0;i<14;i++) {
+    const d = new Date(ref);
+    d.setDate(ref.getDate() - i);
+    const wd = weekdayName(d);
+    if (weekdaysLower.includes(wd)) {
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
     }
-    return null;
   }
-  
-  async function apiEnrollDevice(pin, deviceName) {
-    const {url, key} = getApiConfig();
-    const u = new URL(url);
-    u.searchParams.set('route', 'auth');
-    u.searchParams.set('api_key', key);
-    u.searchParams.set('pin', pin);
-    if (deviceName) u.searchParams.set('device_name', deviceName);
-  
-    const res = await fetch(u.toString(), { method: 'GET' });
-    return await res.json();
-  }
-  
-  async function ensureDeviceToken() {
-    let token = localStorage.getItem(LS_DEVICE_TOKEN);
-    if (token) return token;
-  
-    const pin = prompt('Enter setup PIN (one-time on this device):');
-    if (!pin) throw new Error('Setup PIN required');
-  
-    const deviceName = prompt('Optional device name (e.g., Nick iPhone):') || '';
-    const res = await apiEnrollDevice(pin, deviceName);
-  
-    if (res.status !== 'ok' || !res.device_token) {
-      throw new Error('Enroll failed: ' + JSON.stringify(res));
-    }
-  
-    localStorage.setItem(LS_DEVICE_TOKEN, res.device_token);
-    return res.device_token;
+  return null;
+}
+
+/* ============================================================
+  SECTION 4 — AUTH (PIN → DEVICE TOKEN)
+============================================================ */
+async function apiEnrollDevice(pin, deviceName) {
+  const {url, key} = getApiConfig();
+  const u = new URL(url);
+  u.searchParams.set('route', 'auth');
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('pin', pin);
+  if (deviceName) u.searchParams.set('device_name', deviceName);
+
+  const res = await fetch(u.toString(), { method:'GET' });
+  return await res.json();
+}
+
+async function ensureDeviceToken() {
+  let token = localStorage.getItem(LS_DEVICE_TOKEN);
+  if (token) return token;
+
+  const pin = prompt('Enter setup PIN (one-time on this device):');
+  if (!pin) throw new Error('Setup PIN required');
+
+  const deviceName = prompt('Optional device name (e.g., Nick iPhone):') || '';
+  const res = await apiEnrollDevice(pin, deviceName);
+
+  if (res.status !== 'ok' || !res.device_token) {
+    throw new Error('Enroll failed: ' + JSON.stringify(res));
   }
 
-  // ---- API ----
-  async function apiGet(route) {
-    const {url, key} = getApiConfig();
-    const u = new URL(url);
-    u.searchParams.set('route', route);
-    u.searchParams.set('api_key', key);
-    const res = await fetch(u.toString(), { method:'GET' });
-    return await res.json();
-  }
+  localStorage.setItem(LS_DEVICE_TOKEN, res.device_token);
+  return res.device_token;
+}
 
-  // CORS-safe write: GET /log
-  async function apiPostLog(payload) {
-    const {url, key} = getApiConfig();
-    const token = await ensureDeviceToken();
-  
-    const u = new URL(url);
-    u.searchParams.set('route', 'log');
-    u.searchParams.set('api_key', key);
-    u.searchParams.set('device_token', token);
-    u.searchParams.set('item_key', payload.item_key);
-    u.searchParams.set('value', String(payload.value));
-    if (payload.units) u.searchParams.set('units', payload.units);
-    if (payload.notes) u.searchParams.set('notes', payload.notes);
-  
-    const res = await fetch(u.toString(), { method:'GET' });
-    return await res.json();
-  }
+/* ============================================================
+  SECTION 5 — API (GET routes)
+============================================================ */
+async function apiGet(route) {
+  const {url, key} = getApiConfig();
+  const u = new URL(url);
+  u.searchParams.set('route', route);
+  u.searchParams.set('api_key', key);
+  const res = await fetch(u.toString(), { method:'GET' });
+  return await res.json();
+}
 
-  // ---- Due engine ----
+// CORS-safe write: GET /log
+async function apiPostLog(payload) {
+  const {url, key} = getApiConfig();
+  const token = await ensureDeviceToken();
+
+  const u = new URL(url);
+  u.searchParams.set('route', 'log');
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('device_token', token);
+  u.searchParams.set('item_key', payload.item_key);
+  u.searchParams.set('value', String(payload.value));
+  if (payload.units) u.searchParams.set('units', payload.units);
+  if (payload.notes) u.searchParams.set('notes', payload.notes);
+
+  const res = await fetch(u.toString(), { method:'GET' });
+  return await res.json();
+}
+
+/* ============================================================
+  SECTION 6 — DUE ENGINE
+============================================================ */
 function normalizeYMD(x) {
   if (!x) return '';
   const s = String(x);
-  // If it's ISO like 2026-01-04T05:00:00.000Z, keep just YYYY-MM-DD
-  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
-  // If it's already YYYY-MM-DD, keep it
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0,10);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  // Fallback: try to parse any date-ish string
   const d = new Date(s);
   if (!isNaN(d)) {
     const yyyy = d.getFullYear();
-    const mm = String(d.getMonth() + 1).padStart(2, '0');
-    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
     return `${yyyy}-${mm}-${dd}`;
   }
   return s;
@@ -269,87 +349,78 @@ function buildIndex(logs) {
     const prev = latest.get(k);
     if (!prev || date > prev) latest.set(k, date);
   }
-
   return { latest, loggedOn };
 }
 
+function classifyRule(rule, logIndex, today) {
+  const itemKey = String(rule.item_key || '');
+  const enabled = String(rule.enabled).toLowerCase() === 'true';
+  if (!enabled || !itemKey) return { show:false };
 
-  function classifyRule(rule, logIndex, today) {
-    const itemKey = String(rule.item_key || '');
-    const enabled = String(rule.enabled).toLowerCase() === 'true';
-    if (!enabled || !itemKey) return { show:false };
+  const schedule = String(rule.schedule_type || '').toLowerCase();
+  const nag = String(rule.nag_if_missed).toLowerCase() === 'true';
 
-    const schedule = String(rule.schedule_type || '').toLowerCase();
-    const nag = String(rule.nag_if_missed).toLowerCase() === 'true';
+  const loggedToday = logIndex.loggedOn.get(itemKey)?.has(today) || false;
+  const last = logIndex.latest.get(itemKey) || null;
 
-    const loggedToday = logIndex.loggedOn.get(itemKey)?.has(today) || false;
-    const last = logIndex.latest.get(itemKey) || null;
+  if (loggedToday) return { show:false, satisfied:true };
 
-    if (loggedToday) return { show:false, satisfied:true };
+  if (schedule === 'daily') return { show:true, overdue:false };
 
-    if (schedule === 'daily') {
-      return { show:true, overdue:false };
-    }
-
-    if (schedule === 'interval_days') {
-      const n = Number(rule.interval_days || 0);
-      if (!n || n < 1) return { show:true, overdue:false };
-      if (!last) return { show:true, overdue:false };
-      const delta = daysBetween(last, today);
-      if (delta < n) return { show:false };
-      if (delta === n) return { show:true, overdue:false };
-      return { show:true, overdue:true };
-    }
-
-    if (schedule === 'weekly') {
-      const days = parseWeekdays(rule.weekly_days);
-      if (!days.length) return { show:false };
-
-      const todayWd = weekdayName(new Date(today + "T00:00:00"));
-      const dueToday = days.includes(todayWd);
-      if (dueToday) return { show:true, overdue:false };
-
-      if (!nag) return { show:false };
-
-      const lastDue = mostRecentScheduledDate(days, today);
-      if (!lastDue) return { show:false };
-      if (!last) return { show:true, overdue:true };
-      if (last < lastDue) return { show:true, overdue:true };
-
-      return { show:false };
-    }
-
-    if (schedule === 'rrule') {
-      const raw = String(rule.rrule || '');
-      const m = raw.match(/BYDAY=([^;]+)/i);
-      if (m) {
-        const map = {SU:'sun',MO:'mon',TU:'tue',WE:'wed',TH:'thu',FR:'fri',SA:'sat'};
-        const days = m[1].split(',').map(s => map[s.trim().toUpperCase()]).filter(Boolean);
-        if (!days.length) return { show:false };
-
-        const todayWd = weekdayName(new Date(today + "T00:00:00"));
-        const dueToday = days.includes(todayWd);
-        if (dueToday) return { show:true, overdue:false };
-        if (!nag) return { show:false };
-
-        const lastDue = mostRecentScheduledDate(days, today);
-        if (!lastDue) return { show:false };
-        if (!last) return { show:true, overdue:true };
-        if (last < lastDue) return { show:true, overdue:true };
-
-        return { show:false };
-      }
-      return { show:false };
-    }
-
-    return { show:true, overdue:false };
+  if (schedule === 'interval_days') {
+    const n = Number(rule.interval_days || 0);
+    if (!n || n < 1) return { show:true, overdue:false };
+    if (!last) return { show:true, overdue:false };
+    const delta = daysBetween(last, today);
+    if (delta < n) return { show:false };
+    if (delta === n) return { show:true, overdue:false };
+    return { show:true, overdue:true };
   }
 
-  // ---- UI ----
-  function isDismissedToday(item_key) {
-    const key = `dismiss_${todayYMD()}_${item_key}`;
-    return localStorage.getItem(key) === '1';
+  if (schedule === 'weekly') {
+    const days = parseWeekdays(rule.weekly_days);
+    if (!days.length) return { show:false };
+
+    const todayWd = weekdayName(new Date(today + "T00:00:00"));
+    const dueToday = days.includes(todayWd);
+    if (dueToday) return { show:true, overdue:false };
+    if (!nag) return { show:false };
+
+    const lastDue = mostRecentScheduledDate(days, today);
+    if (!lastDue) return { show:false };
+    if (!last) return { show:true, overdue:true };
+    if (last < lastDue) return { show:true, overdue:true };
+    return { show:false };
   }
+
+  // default
+  return { show:true, overdue:false };
+}
+
+/* ============================================================
+  SECTION 7 — UI RENDERING
+============================================================ */
+function isDismissedToday(item_key) {
+  const key = `dismiss_${todayYMD()}_${item_key}`;
+  return localStorage.getItem(key) === '1';
+}
+
+function makeToggle(initialChecked=false) {
+  const wrap = document.createElement('label');
+  wrap.className = 'toggle';
+
+  const inp = document.createElement('input');
+  inp.type = 'checkbox';
+  inp.checked = !!initialChecked;
+
+  const slider = document.createElement('span');
+  slider.className = 'slider';
+
+  wrap.appendChild(inp);
+  wrap.appendChild(slider);
+
+  return { wrap, input: inp };
+}
 
 function renderItemCard(item, rule, status) {
   const card = document.createElement('div');
@@ -358,44 +429,64 @@ function renderItemCard(item, rule, status) {
   const label = item.label || item.item_key;
   const help = item.help_text || '';
   const units = item.units || '';
+  const type = String(item.type || '').toLowerCase();
 
-  // ROW 1: Label + input (+ overdue)
-const row1 = document.createElement('div');
-row1.className = 'itemRow';
+  /* ---------- Row 1 (grid): label | overdue | input ---------- */
+  const row1 = document.createElement('div');
+  row1.className = 'itemRow';
 
-const labelWrap = document.createElement('div');
-labelWrap.className = 'itemLabel';
-labelWrap.innerHTML = `<div class="label">${label}</div>`;
+  const labelWrap = document.createElement('div');
+  labelWrap.className = 'itemLabel';
+  labelWrap.innerHTML = `<div class="label">${label}</div>`;
 
-const statusWrap = document.createElement('div');
-if (status.overdue) {
-  const p = document.createElement('span');
-  p.className = 'pill';
-  p.textContent = 'Overdue';
-  statusWrap.appendChild(p);
-}
+  const statusWrap = document.createElement('div');
+  if (status.overdue) {
+    const p = document.createElement('span');
+    p.className = 'pill';
+    p.textContent = 'Overdue';
+    statusWrap.appendChild(p);
+  }
 
-const inputWrap = document.createElement('div');
-inputWrap.className = 'itemInputWrap';
-inputWrap.appendChild(inputEl);
-if (units) {
-  const u = document.createElement('span');
-  u.className = 'muted';
-  u.textContent = units;
-  inputWrap.appendChild(u);
-}
+  const inputWrap = document.createElement('div');
+  inputWrap.className = 'itemInputWrap';
 
-row1.appendChild(labelWrap);
-row1.appendChild(statusWrap);
-row1.appendChild(inputWrap);
+  let inputEl = null;
 
-card.appendChild(row1);
+  if (type === 'boolean') {
+    const t = makeToggle(false);
+    inputWrap.appendChild(t.wrap);
+    inputEl = t.input; // checkbox input inside toggle
+  } else if (type === 'text') {
+    inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.placeholder = '';
+    inputEl.style.width = '180px';
+    inputEl.style.minWidth = '180px';
+    inputEl.style.textAlign = 'left';
+    inputWrap.appendChild(inputEl);
+  } else {
+    inputEl = document.createElement('input');
+    inputEl.type = 'number';
+    if (item.min !== '' && item.min != null) inputEl.min = item.min;
+    if (item.max !== '' && item.max != null) inputEl.max = item.max;
+    if (item.step !== '' && item.step != null) inputEl.step = item.step;
+    inputWrap.appendChild(inputEl);
+  }
 
+  if (units && type !== 'boolean') {
+    const u = document.createElement('span');
+    u.className = 'muted';
+    u.textContent = units;
+    inputWrap.appendChild(u);
+  }
 
-  // ROW 2: Actions
+  row1.appendChild(labelWrap);
+  row1.appendChild(statusWrap);
+  row1.appendChild(inputWrap);
+
+  /* ---------- Row 2: actions ---------- */
   const actions = document.createElement('div');
   actions.className = 'actionsRow';
-  actions.style.marginTop = '10px';
 
   const submitBtn = document.createElement('button');
   submitBtn.className = 'primary';
@@ -408,6 +499,7 @@ card.appendChild(row1);
   actions.appendChild(submitBtn);
   actions.appendChild(clearBtn);
 
+  /* ---------- Assemble card ---------- */
   card.appendChild(row1);
   card.appendChild(actions);
 
@@ -418,7 +510,7 @@ card.appendChild(row1);
     card.appendChild(h);
   }
 
-  // Submit handler
+  /* ---------- Submit behavior ---------- */
   submitBtn.addEventListener('click', async () => {
     try {
       const val =
@@ -449,7 +541,7 @@ card.appendChild(row1);
     }
   });
 
-  // Clear handler
+  /* ---------- Clear behavior ---------- */
   clearBtn.addEventListener('click', async () => {
     const key = `dismiss_${todayYMD()}_${item.item_key}`;
     localStorage.setItem(key, '1');
@@ -460,107 +552,105 @@ card.appendChild(row1);
   return card;
 }
 
-  async function loadAndRender() {
-    const today = todayYMD();
-    $('statusLine').textContent = `Today: ${today}`;
+/* ============================================================
+  SECTION 8 — MAIN LOAD + RENDER LOOP
+============================================================ */
+async function loadAndRender() {
+  const today = todayYMD();
+  $('statusLine').textContent = `Today: ${today}`;
 
-    const cfg = getApiConfig();
-    if (!cfg.url || !cfg.key) {
-      $('statusLine').innerHTML = `<span class="danger">Missing API config</span>`;
-      return;
-    }
-
-
-    try {
-      await ensureDeviceToken();
-    } catch (e) {
-      $('statusLine').innerHTML = `<span class="danger">Device not authorized</span>`;
-      toast(e?.message || 'Setup required');
-      return;
-    }
-  
-    
-    let config, logsData;
-    try {
-      config = await apiGet('config');
-      logsData = await apiGet('logs');
-    } catch (e) {
-      $('statusLine').innerHTML = `<span class="danger">API unreachable</span>`;
-      return;
-    }
-
-    const items = (config.items || []).filter(i => String(i.enabled).toLowerCase() === 'true');
-    const rules = (config.rules || []).filter(r => String(r.enabled).toLowerCase() === 'true');
-    const logs = (logsData.logs || []);
-    const logIndex = buildIndex(logs);
-
-    const itemByKey = new Map(items.map(i => [String(i.item_key), i]));
-
-    const requiredEl = $('requiredList');
-    const optionalEl = $('optionalList');
-    requiredEl.innerHTML = '';
-    optionalEl.innerHTML = '';
-
-    let requiredCount = 0;
-    let optionalCount = 0;
-
-    for (const rule of rules) {
-      const itemKey = String(rule.item_key || '');
-      const item = itemByKey.get(itemKey);
-      if (!item) continue;
-
-      // UI-only dismiss
-      if (isDismissedToday(itemKey)) continue;
-
-      const severity = String(rule.severity || 'required').toLowerCase();
-      const status = classifyRule(rule, logIndex, today);
-      if (!status.show) continue;
-
-      const card = renderItemCard(item, rule, status);
-      if (severity === 'optional') {
-        optionalEl.appendChild(card);
-        optionalCount++;
-      } else {
-        requiredEl.appendChild(card);
-        requiredCount++;
-      }
-    }
-
-    $('statusLine').textContent = `Required: ${requiredCount} • Optional: ${optionalCount}`;
+  const cfg = getApiConfig();
+  if (!cfg.url || !cfg.key) {
+    $('statusLine').innerHTML = `<span class="danger">Missing API config</span>`;
+    return;
   }
 
-  // ---- Settings dialog ----
-  $('btnSettings').addEventListener('click', () => $('settingsDlg').showModal());
-  $('btnCloseSettings').addEventListener('click', () => $('settingsDlg').close());
+  try {
+    await ensureDeviceToken();
+  } catch (e) {
+    $('statusLine').innerHTML = `<span class="danger">Device not authorized</span>`;
+    toast(e?.message || 'Setup required');
+    return;
+  }
 
-  $('btnSaveSettings').addEventListener('click', () => {
-    localStorage.setItem(LS_URL, $('cfgUrl').value.trim());
-    localStorage.setItem(LS_KEY, $('cfgKey').value.trim());
-    toast('Saved settings');
-    $('settingsDlg').close();
-    loadAndRender();
-  });
+  let config, logsData;
+  try {
+    config = await apiGet('config');
+    logsData = await apiGet('logs');
+  } catch (e) {
+    $('statusLine').innerHTML = `<span class="danger">API unreachable</span>`;
+    return;
+  }
 
-  $('btnLoadDefault').addEventListener('click', () => {
-    $('cfgUrl').value = DEFAULT_URL;
-    $('cfgKey').value = DEFAULT_KEY;
-    toast('Loaded');
-  });
+  const items = (config.items || []).filter(i => String(i.enabled).toLowerCase() === 'true');
+  const rules = (config.rules || []).filter(r => String(r.enabled).toLowerCase() === 'true');
+  const logs = (logsData.logs || []);
 
-  $('btnRefresh').addEventListener('click', loadAndRender);
+  const logIndex = buildIndex(logs);
+  const itemByKey = new Map(items.map(i => [String(i.item_key), i]));
 
-  // Init settings fields
-  const init = getApiConfig();
-  $('cfgUrl').value = init.url;
-  $('cfgKey').value = init.key;
+  const requiredEl = $('requiredList');
+  const optionalEl = $('optionalList');
+  requiredEl.innerHTML = '';
+  optionalEl.innerHTML = '';
 
+  let requiredCount = 0;
+  let optionalCount = 0;
+
+  for (const rule of rules) {
+    const itemKey = String(rule.item_key || '');
+    const item = itemByKey.get(itemKey);
+    if (!item) continue;
+
+    if (isDismissedToday(itemKey)) continue;
+
+    const severity = String(rule.severity || 'required').toLowerCase();
+    const status = classifyRule(rule, logIndex, today);
+    if (!status.show) continue;
+
+    const card = renderItemCard(item, rule, status);
+    if (severity === 'optional') {
+      optionalEl.appendChild(card);
+      optionalCount++;
+    } else {
+      requiredEl.appendChild(card);
+      requiredCount++;
+    }
+  }
+
+  $('statusLine').textContent = `Required: ${requiredCount} • Optional: ${optionalCount}`;
+}
+
+/* ============================================================
+  SECTION 9 — SETTINGS WIRING
+============================================================ */
+$('btnSettings').addEventListener('click', () => $('settingsDlg').showModal());
+$('btnCloseSettings').addEventListener('click', () => $('settingsDlg').close());
+
+$('btnSaveSettings').addEventListener('click', () => {
+  localStorage.setItem(LS_URL, $('cfgUrl').value.trim());
+  localStorage.setItem(LS_KEY, $('cfgKey').value.trim());
+  toast('Saved settings');
+  $('settingsDlg').close();
   loadAndRender();
+});
+
+$('btnLoadDefault').addEventListener('click', () => {
+  $('cfgUrl').value = DEFAULT_URL;
+  $('cfgKey').value = DEFAULT_KEY;
+  toast('Loaded');
+});
+
+$('btnRefresh').addEventListener('click', loadAndRender);
+
+/* ============================================================
+  SECTION 10 — INIT
+============================================================ */
+const init = getApiConfig();
+$('cfgUrl').value = init.url;
+$('cfgKey').value = init.key;
+
+loadAndRender();
 </script>
 </body>
 </html>
-
-
-
-
-
-
