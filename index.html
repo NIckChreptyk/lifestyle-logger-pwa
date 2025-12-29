@@ -190,23 +190,43 @@
   }
 
   // ---- Due engine ----
-  function buildIndex(logs) {
-    const latest = new Map();
-    const loggedOn = new Map(); // item_key -> Set(dates)
-
-    for (const r of logs) {
-      const k = String(r.item_key || '');
-      const date = String(r.date || '');
-      if (!k || !date) continue;
-
-      if (!loggedOn.has(k)) loggedOn.set(k, new Set());
-      loggedOn.get(k).add(date);
-
-      const prev = latest.get(k);
-      if (!prev || date > prev) latest.set(k, date);
-    }
-    return { latest, loggedOn };
+function normalizeYMD(x) {
+  if (!x) return '';
+  const s = String(x);
+  // If it's ISO like 2026-01-04T05:00:00.000Z, keep just YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s.slice(0, 10);
+  // If it's already YYYY-MM-DD, keep it
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  // Fallback: try to parse any date-ish string
+  const d = new Date(s);
+  if (!isNaN(d)) {
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const dd = String(d.getDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
   }
+  return s;
+}
+
+function buildIndex(logs) {
+  const latest = new Map();
+  const loggedOn = new Map(); // item_key -> Set(dates)
+
+  for (const r of logs) {
+    const k = String(r.item_key || '');
+    const date = normalizeYMD(r.date);
+    if (!k || !date) continue;
+
+    if (!loggedOn.has(k)) loggedOn.set(k, new Set());
+    loggedOn.get(k).add(date);
+
+    const prev = latest.get(k);
+    if (!prev || date > prev) latest.set(k, date);
+  }
+
+  return { latest, loggedOn };
+}
+
 
   function classifyRule(rule, logIndex, today) {
     const itemKey = String(rule.item_key || '');
@@ -501,3 +521,4 @@
 </script>
 </body>
 </html>
+
