@@ -409,7 +409,8 @@
 
         await loadAndRender();
       } catch (e) {
-        toast('Save failed');
+        toast('Save failed: ' + (e?.message || 'unknown'));
+        console.error(e);
       }
     });
 
@@ -519,4 +520,5 @@
 </script>
 </body>
 </html>
+
 
