@@ -1,0 +1,519 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0b0b0b" />
+  <link rel="manifest" href="/manifest.json" />
+  <title>Life Logger</title>
+  <style>
+    body { font-family: system-ui, Arial; margin: 0; background:#0b0b0b; color:#f2f2f2; }
+    header { display:flex; justify-content:space-between; align-items:center; padding:14px 16px; border-bottom:1px solid #222; }
+    main { padding: 16px; max-width: 720px; margin: 0 auto; }
+    .sectionTitle { margin: 18px 0 10px; font-weight: 700; }
+    .card { border:1px solid #222; border-radius: 14px; padding: 12px; margin-bottom: 10px; background:#121212; }
+    .row { display:flex; gap:10px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+    .label { font-weight:700; }
+    .hint { color:#bdbdbd; font-size: 12px; margin-top: 6px; }
+    input[type="number"], input[type="text"], select {
+      background:#0b0b0b; color:#f2f2f2; border:1px solid #2a2a2a;
+      border-radius: 10px; padding:10px; min-width: 160px;
+    }
+    button {
+      background:#1f1f1f; color:#f2f2f2; border:1px solid #2a2a2a;
+      border-radius: 12px; padding:10px 12px; cursor:pointer;
+    }
+    button.primary { background:#2b2b2b; }
+    .pill { font-size:12px; padding:4px 8px; border:1px solid #2a2a2a; border-radius: 999px; color:#cfcfcf; }
+    .overdue { border-color:#7a2d2d; }
+    details summary { cursor:pointer; color:#cfcfcf; }
+    .muted { color:#bdbdbd; }
+    .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
+      background:#121212; border:1px solid #2a2a2a; padding:10px 12px; border-radius: 12px; display:none;
+    }
+    .small { font-size: 12px; }
+    .danger { color:#ffb3b3; }
+    a { color:#cfcfcf; }
+  </style>
+</head>
+<body>
+  <header>
+    <div>
+      <div style="font-weight:800;">Life Logger</div>
+      <div class="small muted" id="statusLine">Loading…</div>
+    </div>
+    <div class="row">
+      <button id="btnRefresh">Refresh</button>
+      <button id="btnSettings">Settings</button>
+    </div>
+  </header>
+
+  <main>
+    <div class="sectionTitle">Required</div>
+    <div id="requiredList"></div>
+
+    <details>
+      <summary class="sectionTitle">Optional</summary>
+      <div id="optionalList" style="margin-top:10px;"></div>
+    </details>
+
+    <div style="margin-top:18px;" class="small muted">
+      Tip: Add to Home Screen for full-screen app behavior.
+    </div>
+  </main>
+
+  <div class="toast" id="toast"></div>
+
+  <dialog id="settingsDlg" style="border:1px solid #2a2a2a;border-radius:16px;background:#121212;color:#f2f2f2;max-width:720px;width:92%;">
+    <div class="row" style="margin-bottom:10px;">
+      <div style="font-weight:800;">Settings</div>
+      <button id="btnCloseSettings">Close</button>
+    </div>
+
+    <div class="card">
+      <div class="label">Apps Script Web App URL</div>
+      <div class="hint">Example: https://script.google.com/macros/s/.../exec</div>
+      <input id="cfgUrl" type="text" style="width:100%;" />
+    </div>
+
+    <div class="card">
+      <div class="label">API Key</div>
+      <div class="hint">Stored in your browser (localStorage). This app is personal-use; this is fine.</div>
+      <input id="cfgKey" type="text" style="width:100%;" />
+    </div>
+
+    <div class="row">
+      <button class="primary" id="btnSaveSettings">Save</button>
+      <button id="btnLoadDefault">Load your current URL/key</button>
+    </div>
+
+    <div class="hint">
+      If you rotate your key, update both Apps Script and this Settings screen.
+    </div>
+  </dialog>
+
+<script>
+  // ---- PWA registration ----
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(()=>{});
+  }
+
+  // ---- Storage ----
+  const LS_URL = 'lifelogger_api_url';
+  const LS_KEY = 'lifelogger_api_key';
+
+  // Pre-fill with what you gave me (you can still override in Settings)
+  const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbxbXijYH9SIsCb5gdVtBpw4Fien3RZKePE1gNf41h1UageDvvk6jg2pOrNrPavSlOjS/exec";
+  const DEFAULT_KEY = "lifelogger_fitness_v1_9f3kA72Qm";
+
+  function getApiConfig() {
+    return {
+      url: localStorage.getItem(LS_URL) || DEFAULT_URL,
+      key: localStorage.getItem(LS_KEY) || DEFAULT_KEY,
+    };
+  }
+
+  // ---- Helpers ----
+  const $ = (id) => document.getElementById(id);
+  function toast(msg) {
+    const el = $('toast');
+    el.textContent = msg;
+    el.style.display = 'block';
+    clearTimeout(window.__t);
+    window.__t = setTimeout(()=> el.style.display = 'none', 1800);
+  }
+
+  function todayYMD() {
+    const d = new Date();
+    // Use local date for "today" in UI. Server writes UTC date; for most people this is fine.
+    const yyyy = d.getFullYear();
+    const mm = String(d.getMonth()+1).padStart(2,'0');
+    const dd = String(d.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  function parseWeekdays(csv) {
+    if (!csv) return [];
+    return csv.split(',').map(s => s.trim().toLowerCase());
+  }
+
+  function weekdayName(d) {
+    return ['sun','mon','tue','wed','thu','fri','sat'][d.getDay()];
+  }
+
+  function daysBetween(aYMD, bYMD) {
+    const a = new Date(aYMD + "T00:00:00");
+    const b = new Date(bYMD + "T00:00:00");
+    return Math.floor((b - a) / (1000*60*60*24));
+  }
+
+  function mostRecentScheduledDate(weekdaysLower, refDateYMD) {
+    // find most recent date <= refDate that matches any weekday in list, scanning back 14 days
+    const ref = new Date(refDateYMD + "T00:00:00");
+    for (let i=0;i<14;i++) {
+      const d = new Date(ref);
+      d.setDate(ref.getDate() - i);
+      const wd = weekdayName(d);
+      if (weekdaysLower.includes(wd)) {
+        const yyyy = d.getFullYear();
+        const mm = String(d.getMonth()+1).padStart(2,'0');
+        const dd = String(d.getDate()).padStart(2,'0');
+        return `${yyyy}-${mm}-${dd}`;
+      }
+    }
+    return null;
+  }
+
+  // ---- API ----
+  async function apiGet(route) {
+    const {url, key} = getApiConfig();
+    const u = new URL(url);
+    u.searchParams.set('route', route);
+    u.searchParams.set('api_key', key);
+    const res = await fetch(u.toString(), { method:'GET' });
+    return await res.json();
+  }
+
+  async function apiPostLog(payload) {
+    const {url, key} = getApiConfig();
+    const u = new URL(url);
+    u.searchParams.set('route', 'log');
+    u.searchParams.set('api_key', key);
+    const res = await fetch(u.toString(), {
+      method:'POST',
+      headers: { 'Content-Type':'application/json' },
+      body: JSON.stringify(payload)
+    });
+    return await res.json();
+  }
+
+  // ---- Due engine ----
+  function buildIndex(logs) {
+    // latest log date per item_key
+    const latest = new Map();
+    // also track if logged today (to satisfy daily quickly)
+    const loggedOn = new Map(); // item_key -> Set(dates)
+    for (const r of logs) {
+      const k = String(r.item_key || '');
+      const date = String(r.date || '');
+      if (!k || !date) continue;
+
+      if (!loggedOn.has(k)) loggedOn.set(k, new Set());
+      loggedOn.get(k).add(date);
+
+      const prev = latest.get(k);
+      if (!prev || date > prev) latest.set(k, date);
+    }
+    return { latest, loggedOn };
+  }
+
+  function classifyRule(rule, logIndex, today) {
+    const itemKey = String(rule.item_key || '');
+    const enabled = String(rule.enabled).toLowerCase() === 'true';
+    if (!enabled || !itemKey) return { show:false };
+
+    const schedule = String(rule.schedule_type || '').toLowerCase();
+    const nag = String(rule.nag_if_missed).toLowerCase() === 'true';
+
+    const loggedToday = logIndex.loggedOn.get(itemKey)?.has(today) || false;
+    const last = logIndex.latest.get(itemKey) || null;
+
+    // If already logged today, satisfied.
+    if (loggedToday) return { show:false, satisfied:true };
+
+    // DAILY
+    if (schedule === 'daily') {
+      // due every day if not logged today
+      return { show:true, overdue:false };
+    }
+
+    // INTERVAL DAYS (every N days since last log)
+    if (schedule === 'interval_days') {
+      const n = Number(rule.interval_days || 0);
+      if (!n || n < 1) return { show:true, overdue:false }; // fallback: show
+      if (!last) return { show:true, overdue:false }; // never logged -> due
+      const delta = daysBetween(last, today);
+      if (delta < n) return { show:false };         // not due yet
+      if (delta === n) return { show:true, overdue:false }; // due
+      return { show:true, overdue:true };           // overdue
+    }
+
+    // WEEKLY (specific weekdays)
+    if (schedule === 'weekly') {
+      const days = parseWeekdays(rule.weekly_days);
+      if (!days.length) return { show:false };
+
+      const todayWd = weekdayName(new Date(today + "T00:00:00"));
+      const dueToday = days.includes(todayWd);
+
+      if (dueToday) return { show:true, overdue:false };
+
+      if (!nag) return { show:false };
+
+      // nagging weekly: if we've passed a scheduled day since last log
+      const lastDue = mostRecentScheduledDate(days, today);
+      if (!lastDue) return { show:false };
+      if (!last) return { show:true, overdue:true }; // never logged but schedule exists -> overdue
+      // If last log date is before the most recent scheduled date, it's overdue.
+      if (last < lastDue) return { show:true, overdue:true };
+
+      return { show:false };
+    }
+
+    // RRULE (v1 minimal support: treat as weekly if BYDAY exists; otherwise don't block)
+    if (schedule === 'rrule') {
+      // Minimal: if rule.rrule contains BYDAY=..., behave like weekly with nag
+      const raw = String(rule.rrule || '');
+      const m = raw.match(/BYDAY=([^;]+)/i);
+      if (m) {
+        const map = {SU:'sun',MO:'mon',TU:'tue',WE:'wed',TH:'thu',FR:'fri',SA:'sat'};
+        const days = m[1].split(',').map(s => map[s.trim().toUpperCase()] ).filter(Boolean);
+        if (!days.length) return { show:false };
+        // reuse weekly logic
+        const todayWd = weekdayName(new Date(today + "T00:00:00"));
+        const dueToday = days.includes(todayWd);
+        if (dueToday) return { show:true, overdue:false };
+        if (!nag) return { show:false };
+        const lastDue = mostRecentScheduledDate(days, today);
+        if (!lastDue) return { show:false };
+        if (!last) return { show:true, overdue:true };
+        if (last < lastDue) return { show:true, overdue:true };
+        return { show:false };
+      }
+      // fallback: don't force RRULE yet
+      return { show:false };
+    }
+
+    // Unknown schedule: show so you notice config issue
+    return { show:true, overdue:false };
+  }
+
+  // ---- UI ----
+  function renderItemCard(item, rule, status) {
+    const card = document.createElement('div');
+    card.className = 'card' + (status.overdue ? ' overdue' : '');
+    const label = item.label || item.item_key;
+    const help = item.help_text || '';
+    const units = item.units || '';
+
+    const top = document.createElement('div');
+    top.className = 'row';
+
+    const left = document.createElement('div');
+    left.innerHTML = `<div class="label">${label}</div>
+      <div class="small muted">${item.group || ''}</div>`;
+
+    const right = document.createElement('div');
+    right.className = 'row';
+
+    if (status.overdue) {
+      const p = document.createElement('span');
+      p.className = 'pill';
+      p.textContent = 'Overdue';
+      right.appendChild(p);
+    } else {
+      const p = document.createElement('span');
+      p.className = 'pill';
+      p.textContent = 'Due';
+      right.appendChild(p);
+    }
+
+    top.appendChild(left);
+    top.appendChild(right);
+
+    const mid = document.createElement('div');
+    mid.className = 'row';
+    mid.style.marginTop = '10px';
+
+    // Input control
+    let inputEl;
+    const type = String(item.type || '').toLowerCase();
+    if (type === 'boolean') {
+      inputEl = document.createElement('input');
+      inputEl.type = 'checkbox';
+      inputEl.style.transform = 'scale(1.3)';
+    } else if (type === 'select') {
+      inputEl = document.createElement('select');
+      // optional: if you later add allowed_values column, populate here
+      const opt = document.createElement('option'); opt.value=''; opt.textContent='Select…';
+      inputEl.appendChild(opt);
+    } else if (type === 'text') {
+      inputEl = document.createElement('input');
+      inputEl.type = 'text';
+      inputEl.placeholder = 'Enter…';
+      inputEl.style.minWidth = '240px';
+    } else {
+      inputEl = document.createElement('input');
+      inputEl.type = 'number';
+      if (item.min !== '' && item.min != null) inputEl.min = item.min;
+      if (item.max !== '' && item.max != null) inputEl.max = item.max;
+      if (item.step !== '' && item.step != null) inputEl.step = item.step;
+      inputEl.placeholder = units ? `(${units})` : 'Enter…';
+    }
+
+    const submitBtn = document.createElement('button');
+    submitBtn.className = 'primary';
+    submitBtn.textContent = 'Submit';
+
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    clearBtn.title = 'Dismiss this requirement from the UI for today';
+
+    mid.appendChild(inputEl);
+    if (units && type === 'number') {
+      const u = document.createElement('span');
+      u.className = 'muted';
+      u.textContent = units;
+      mid.appendChild(u);
+    }
+    mid.appendChild(submitBtn);
+    mid.appendChild(clearBtn);
+
+    if (help) {
+      const h = document.createElement('div');
+      h.className = 'hint';
+      h.textContent = help;
+      card.appendChild(top);
+      card.appendChild(mid);
+      card.appendChild(h);
+    } else {
+      card.appendChild(top);
+      card.appendChild(mid);
+    }
+
+    // Actions
+    submitBtn.addEventListener('click', async () => {
+      try {
+        const val =
+          (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
+          (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
+          inputEl.value;
+
+        if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
+          toast('Enter a value first');
+          return;
+        }
+
+        const res = await apiPostLog({
+          item_key: item.item_key,
+          value: val,
+          units: units || '',
+          notes: ''
+        });
+
+        if (res.status === 'ok') toast('Saved');
+        else if (res.status === 'duplicate_ignored') toast('Already logged today');
+        else toast('Saved (check response)');
+
+        await loadAndRender();
+      } catch (e) {
+        toast('Save failed');
+      }
+    });
+
+    // UI-only clear (per your spec)
+    clearBtn.addEventListener('click', async () => {
+      // Dismiss only for today (local only)
+      const key = `dismiss_${todayYMD()}_${item.item_key}`;
+      localStorage.setItem(key, '1');
+      toast('Cleared for today');
+      await loadAndRender();
+    });
+
+    return card;
+  }
+
+  function isDismissedToday(item_key) {
+    const key = `dismiss_${todayYMD()}_${item_key}`;
+    return localStorage.getItem(key) === '1';
+  }
+
+  async function loadAndRender() {
+    const today = todayYMD();
+    $('statusLine').textContent = `Today: ${today}`;
+
+    const cfg = getApiConfig();
+    if (!cfg.url || !cfg.key) {
+      $('statusLine').innerHTML = `<span class="danger">Missing API config</span>`;
+      return;
+    }
+
+    let config, logsData;
+    try {
+      config = await apiGet('config');
+      logsData = await apiGet('logs');
+    } catch (e) {
+      $('statusLine').innerHTML = `<span class="danger">API unreachable</span>`;
+      return;
+    }
+
+    const items = (config.items || []).filter(i => String(i.enabled).toLowerCase() === 'true');
+    const rules = (config.rules || []).filter(r => String(r.enabled).toLowerCase() === 'true');
+
+    const logs = (logsData.logs || []);
+    const logIndex = buildIndex(logs);
+
+    const itemByKey = new Map(items.map(i => [String(i.item_key), i]));
+
+    const requiredEl = $('requiredList');
+    const optionalEl = $('optionalList');
+    requiredEl.innerHTML = '';
+    optionalEl.innerHTML = '';
+
+    let requiredCount = 0;
+    let optionalCount = 0;
+
+    for (const rule of rules) {
+      const itemKey = String(rule.item_key || '');
+      const item = itemByKey.get(itemKey);
+      if (!item) continue;
+
+      // UI-only dismiss
+      if (isDismissedToday(itemKey)) continue;
+
+      const severity = String(rule.severity || 'required').toLowerCase();
+      const status = classifyRule(rule, logIndex, today);
+      if (!status.show) continue;
+
+      const card = renderItemCard(item, rule, status);
+      if (severity === 'optional') {
+        optionalEl.appendChild(card);
+        optionalCount++;
+      } else {
+        requiredEl.appendChild(card);
+        requiredCount++;
+      }
+    }
+
+    $('statusLine').textContent = `Required: ${requiredCount} • Optional: ${optionalCount}`;
+  }
+
+  // Settings dialog
+  $('btnSettings').addEventListener('click', () => $('settingsDlg').showModal());
+  $('btnCloseSettings').addEventListener('click', () => $('settingsDlg').close());
+
+  $('btnSaveSettings').addEventListener('click', () => {
+    localStorage.setItem(LS_URL, $('cfgUrl').value.trim());
+    localStorage.setItem(LS_KEY, $('cfgKey').value.trim());
+    toast('Saved settings');
+    $('settingsDlg').close();
+    loadAndRender();
+  });
+
+  $('btnLoadDefault').addEventListener('click', () => {
+    $('cfgUrl').value = DEFAULT_URL;
+    $('cfgKey').value = DEFAULT_KEY;
+    toast('Loaded');
+  });
+
+  $('btnRefresh').addEventListener('click', loadAndRender);
+
+  // init settings fields
+  const init = getApiConfig();
+  $('cfgUrl').value = init.url;
+  $('cfgKey').value = init.key;
+
+  loadAndRender();
+</script>
+</body>
+</html>
