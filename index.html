@@ -30,6 +30,7 @@
     .muted { color:#bdbdbd; }
     .toast { position: fixed; bottom: 14px; left: 50%; transform: translateX(-50%);
       background:#121212; border:1px solid #2a2a2a; padding:10px 12px; border-radius: 12px; display:none;
+      max-width: 92vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
     }
     .small { font-size: 12px; }
     .danger { color:#ffb3b3; }
@@ -78,7 +79,7 @@
 
     <div class="card">
       <div class="label">API Key</div>
-      <div class="hint">Stored in your browser (localStorage). This app is personal-use; this is fine.</div>
+      <div class="hint">Stored in your browser (localStorage).</div>
       <input id="cfgKey" type="text" style="width:100%;" />
     </div>
 
@@ -102,7 +103,7 @@
   const LS_URL = 'lifelogger_api_url';
   const LS_KEY = 'lifelogger_api_key';
 
-  // Pre-fill with what you gave me (you can still override in Settings)
+  // Defaults (you can override in Settings)
   const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbxbXijYH9SIsCb5gdVtBpw4Fien3RZKePE1gNf41h1UageDvvk6jg2pOrNrPavSlOjS/exec";
   const DEFAULT_KEY = "lifelogger_fitness_v1_9f3kA72Qm";
 
@@ -115,17 +116,17 @@
 
   // ---- Helpers ----
   const $ = (id) => document.getElementById(id);
+
   function toast(msg) {
     const el = $('toast');
     el.textContent = msg;
     el.style.display = 'block';
     clearTimeout(window.__t);
-    window.__t = setTimeout(()=> el.style.display = 'none', 1800);
+    window.__t = setTimeout(()=> el.style.display = 'none', 2200);
   }
 
   function todayYMD() {
     const d = new Date();
-    // Use local date for "today" in UI. Server writes UTC date; for most people this is fine.
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth()+1).padStart(2,'0');
     const dd = String(d.getDate()).padStart(2,'0');
@@ -148,7 +149,6 @@
   }
 
   function mostRecentScheduledDate(weekdaysLower, refDateYMD) {
-    // find most recent date <= refDate that matches any weekday in list, scanning back 14 days
     const ref = new Date(refDateYMD + "T00:00:00");
     for (let i=0;i<14;i++) {
       const d = new Date(ref);
@@ -174,26 +174,26 @@
     return await res.json();
   }
 
+  // CORS-safe write: GET /log
   async function apiPostLog(payload) {
-  const {url, key} = getApiConfig();
-  const u = new URL(url);
-  u.searchParams.set('route', 'log');
-  u.searchParams.set('api_key', key);
-  u.searchParams.set('item_key', payload.item_key);
-  u.searchParams.set('value', String(payload.value));
-  if (payload.units) u.searchParams.set('units', payload.units);
-  if (payload.notes) u.searchParams.set('notes', payload.notes);
+    const {url, key} = getApiConfig();
+    const u = new URL(url);
+    u.searchParams.set('route', 'log');
+    u.searchParams.set('api_key', key);
+    u.searchParams.set('item_key', payload.item_key);
+    u.searchParams.set('value', String(payload.value));
+    if (payload.units) u.searchParams.set('units', payload.units);
+    if (payload.notes) u.searchParams.set('notes', payload.notes);
 
-  const res = await fetch(u.toString(), { method: 'GET' });
-  return await res.json();
-}
+    const res = await fetch(u.toString(), { method:'GET' });
+    return await res.json();
+  }
 
   // ---- Due engine ----
   function buildIndex(logs) {
-    // latest log date per item_key
     const latest = new Map();
-    // also track if logged today (to satisfy daily quickly)
     const loggedOn = new Map(); // item_key -> Set(dates)
+
     for (const r of logs) {
       const k = String(r.item_key || '');
       const date = String(r.date || '');
@@ -219,80 +219,76 @@
     const loggedToday = logIndex.loggedOn.get(itemKey)?.has(today) || false;
     const last = logIndex.latest.get(itemKey) || null;
 
-    // If already logged today, satisfied.
     if (loggedToday) return { show:false, satisfied:true };
 
-    // DAILY
     if (schedule === 'daily') {
-      // due every day if not logged today
       return { show:true, overdue:false };
     }
 
-    // INTERVAL DAYS (every N days since last log)
     if (schedule === 'interval_days') {
       const n = Number(rule.interval_days || 0);
-      if (!n || n < 1) return { show:true, overdue:false }; // fallback: show
-      if (!last) return { show:true, overdue:false }; // never logged -> due
+      if (!n || n < 1) return { show:true, overdue:false };
+      if (!last) return { show:true, overdue:false };
       const delta = daysBetween(last, today);
-      if (delta < n) return { show:false };         // not due yet
-      if (delta === n) return { show:true, overdue:false }; // due
-      return { show:true, overdue:true };           // overdue
+      if (delta < n) return { show:false };
+      if (delta === n) return { show:true, overdue:false };
+      return { show:true, overdue:true };
     }
 
-    // WEEKLY (specific weekdays)
     if (schedule === 'weekly') {
       const days = parseWeekdays(rule.weekly_days);
       if (!days.length) return { show:false };
 
       const todayWd = weekdayName(new Date(today + "T00:00:00"));
       const dueToday = days.includes(todayWd);
-
       if (dueToday) return { show:true, overdue:false };
 
       if (!nag) return { show:false };
 
-      // nagging weekly: if we've passed a scheduled day since last log
       const lastDue = mostRecentScheduledDate(days, today);
       if (!lastDue) return { show:false };
-      if (!last) return { show:true, overdue:true }; // never logged but schedule exists -> overdue
-      // If last log date is before the most recent scheduled date, it's overdue.
+      if (!last) return { show:true, overdue:true };
       if (last < lastDue) return { show:true, overdue:true };
 
       return { show:false };
     }
 
-    // RRULE (v1 minimal support: treat as weekly if BYDAY exists; otherwise don't block)
     if (schedule === 'rrule') {
-      // Minimal: if rule.rrule contains BYDAY=..., behave like weekly with nag
       const raw = String(rule.rrule || '');
       const m = raw.match(/BYDAY=([^;]+)/i);
       if (m) {
         const map = {SU:'sun',MO:'mon',TU:'tue',WE:'wed',TH:'thu',FR:'fri',SA:'sat'};
-        const days = m[1].split(',').map(s => map[s.trim().toUpperCase()] ).filter(Boolean);
+        const days = m[1].split(',').map(s => map[s.trim().toUpperCase()]).filter(Boolean);
         if (!days.length) return { show:false };
-        // reuse weekly logic
+
         const todayWd = weekdayName(new Date(today + "T00:00:00"));
         const dueToday = days.includes(todayWd);
         if (dueToday) return { show:true, overdue:false };
         if (!nag) return { show:false };
+
         const lastDue = mostRecentScheduledDate(days, today);
         if (!lastDue) return { show:false };
         if (!last) return { show:true, overdue:true };
         if (last < lastDue) return { show:true, overdue:true };
+
         return { show:false };
       }
-      // fallback: don't force RRULE yet
       return { show:false };
     }
 
-    // Unknown schedule: show so you notice config issue
     return { show:true, overdue:false };
   }
 
   // ---- UI ----
+  function isDismissedToday(item_key) {
+    const key = `dismiss_${todayYMD()}_${item_key}`;
+    return localStorage.getItem(key) === '1';
+  }
+
   function renderItemCard(item, rule, status) {
     const card = document.createElement('div');
     card.className = 'card' + (status.overdue ? ' overdue' : '');
+
     const label = item.label || item.item_key;
     const help = item.help_text || '';
     const units = item.units || '';
@@ -307,17 +303,10 @@
     const right = document.createElement('div');
     right.className = 'row';
 
-    if (status.overdue) {
-      const p = document.createElement('span');
-      p.className = 'pill';
-      p.textContent = 'Overdue';
-      right.appendChild(p);
-    } else {
-      const p = document.createElement('span');
-      p.className = 'pill';
-      p.textContent = 'Due';
-      right.appendChild(p);
-    }
+    const p = document.createElement('span');
+    p.className = 'pill';
+    p.textContent = status.overdue ? 'Overdue' : 'Due';
+    right.appendChild(p);
 
     top.appendChild(left);
     top.appendChild(right);
@@ -329,14 +318,16 @@
     // Input control
     let inputEl;
     const type = String(item.type || '').toLowerCase();
+
     if (type === 'boolean') {
       inputEl = document.createElement('input');
       inputEl.type = 'checkbox';
       inputEl.style.transform = 'scale(1.3)';
     } else if (type === 'select') {
       inputEl = document.createElement('select');
-      // optional: if you later add allowed_values column, populate here
-      const opt = document.createElement('option'); opt.value=''; opt.textContent='Select…';
+      const opt = document.createElement('option');
+      opt.value = '';
+      opt.textContent = 'Select…';
       inputEl.appendChild(opt);
     } else if (type === 'text') {
       inputEl = document.createElement('input');
@@ -370,61 +361,49 @@
     mid.appendChild(submitBtn);
     mid.appendChild(clearBtn);
 
+    card.appendChild(top);
+    card.appendChild(mid);
+
     if (help) {
       const h = document.createElement('div');
       h.className = 'hint';
       h.textContent = help;
-      card.appendChild(top);
-      card.appendChild(mid);
       card.appendChild(h);
-    } else {
-      card.appendChild(top);
-      card.appendChild(mid);
     }
 
-    // Actions
-  submitBtn.addEventListener('click', async () => {
-    try {
-      const val =
-        (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
-        (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
-        inputEl.value;
-  
-      if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
-        toast('Enter a value first');
-        return;
+    // Submit action (NORMAL MODE)
+    submitBtn.addEventListener('click', async () => {
+      try {
+        const val =
+          (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
+          (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
+          inputEl.value;
+
+        if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
+          toast('Enter a value first');
+          return;
+        }
+
+        const res = await apiPostLog({
+          item_key: item.item_key,
+          value: val,
+          units: units || '',
+          notes: ''
+        });
+
+        if (res.status === 'ok') toast('Saved');
+        else if (res.status === 'duplicate_ignored') toast('Already logged today');
+        else toast('API: ' + JSON.stringify(res));
+
+        await loadAndRender();
+      } catch (e) {
+        toast('Save failed: ' + (e?.message || 'unknown'));
+        console.error(e);
       }
-  
-      const res = await apiPostLog({
-        item_key: item.item_key,
-        value: val,
-        units: units || '',
-        notes: ''
-      });
-  
-      // ===== DEBUG MODE (temporary) =====
-      // Show EXACT response so we can see why it isn't writing / clearing
-      toast('API response: ' + JSON.stringify(res));
-      console.log('API response:', res);
-      return;
-      // ===== END DEBUG MODE =====
-  
-      // Normal behavior (re-enable after debug)
-      // if (res.status === 'ok') toast('Saved');
-      // else if (res.status === 'duplicate_ignored') toast('Already logged today');
-      // else toast('Saved (check response)');
-  
-      // await loadAndRender();
-    } catch (e) {
-      toast('Save failed: ' + (e?.message || 'unknown'));
-      console.error(e);
-    }
-  });
+    });
 
-
-    // UI-only clear (per your spec)
+    // UI-only clear (dismiss for today)
     clearBtn.addEventListener('click', async () => {
-      // Dismiss only for today (local only)
       const key = `dismiss_${todayYMD()}_${item.item_key}`;
       localStorage.setItem(key, '1');
       toast('Cleared for today');
@@ -432,11 +411,6 @@
     });
 
     return card;
-  }
-
-  function isDismissedToday(item_key) {
-    const key = `dismiss_${todayYMD()}_${item_key}`;
-    return localStorage.getItem(key) === '1';
   }
 
   async function loadAndRender() {
@@ -460,7 +434,6 @@
 
     const items = (config.items || []).filter(i => String(i.enabled).toLowerCase() === 'true');
     const rules = (config.rules || []).filter(r => String(r.enabled).toLowerCase() === 'true');
-
     const logs = (logsData.logs || []);
     const logIndex = buildIndex(logs);
 
@@ -499,7 +472,7 @@
     $('statusLine').textContent = `Required: ${requiredCount} • Optional: ${optionalCount}`;
   }
 
-  // Settings dialog
+  // ---- Settings dialog ----
   $('btnSettings').addEventListener('click', () => $('settingsDlg').showModal());
   $('btnCloseSettings').addEventListener('click', () => $('settingsDlg').close());
 
@@ -519,7 +492,7 @@
 
   $('btnRefresh').addEventListener('click', loadAndRender);
 
-  // init settings fields
+  // Init settings fields
   const init = getApiConfig();
   $('cfgUrl').value = init.url;
   $('cfgKey').value = init.key;
@@ -528,8 +501,3 @@
 </script>
 </body>
 </html>
-
-
-
-
-
