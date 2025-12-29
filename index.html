@@ -31,6 +31,20 @@
   details summary{cursor:pointer;color:#cfcfcf}
 
   .toast{position:fixed;bottom:14px;left:50%;transform:translateX(-50%);background:#121212;border:1px solid #2a2a2a;padding:10px 12px;border-radius:12px;display:none;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  
+  .itemRow{
+    display:grid;
+    grid-template-columns: 1fr auto auto; /* label | status | input */
+    gap:10px;
+    align-items:center;
+  }
+  
+  .itemLabel{min-width:0} /* allows ellipsis */
+  .itemLabel .label{white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  
+  .itemInputWrap{display:flex; align-items:center; justify-content:flex-end; gap:8px}
+  .itemInputWrap input[type="checkbox"]{margin-left:12px} /* adds breathing room */
+
 </style>
 
 </head>
@@ -346,55 +360,37 @@ function renderItemCard(item, rule, status) {
   const units = item.units || '';
 
   // ROW 1: Label + input (+ overdue)
-  const row1 = document.createElement('div');
-  row1.className = 'row';
+const row1 = document.createElement('div');
+row1.className = 'itemRow';
 
-  const left = document.createElement('div');
-  left.style.display = 'flex';
-  left.style.alignItems = 'center';
-  left.style.gap = '10px';
-  left.innerHTML = `<div class="label">${label}</div>`;
+const labelWrap = document.createElement('div');
+labelWrap.className = 'itemLabel';
+labelWrap.innerHTML = `<div class="label">${label}</div>`;
 
-  let inputEl;
-  const type = String(item.type || '').toLowerCase();
+const statusWrap = document.createElement('div');
+if (status.overdue) {
+  const p = document.createElement('span');
+  p.className = 'pill';
+  p.textContent = 'Overdue';
+  statusWrap.appendChild(p);
+}
 
-  if (type === 'boolean') {
-    inputEl = document.createElement('input');
-    inputEl.type = 'checkbox';
-    inputEl.style.transform = 'scale(1.3)';
-  } else if (type === 'text') {
-    inputEl = document.createElement('input');
-    inputEl.type = 'text';
-    inputEl.placeholder = 'Enter…';
-    inputEl.style.width = '180px';
-    inputEl.style.textAlign = 'left';
-  } else {
-    inputEl = document.createElement('input');
-    inputEl.type = 'number';
-    inputEl.placeholder = '';
-  }
+const inputWrap = document.createElement('div');
+inputWrap.className = 'itemInputWrap';
+inputWrap.appendChild(inputEl);
+if (units) {
+  const u = document.createElement('span');
+  u.className = 'muted';
+  u.textContent = units;
+  inputWrap.appendChild(u);
+}
 
-  left.appendChild(inputEl);
+row1.appendChild(labelWrap);
+row1.appendChild(statusWrap);
+row1.appendChild(inputWrap);
 
-  if (units) {
-    const u = document.createElement('span');
-    u.className = 'muted';
-    u.textContent = units;
-    left.appendChild(u);
-  }
+card.appendChild(row1);
 
-  const right = document.createElement('div');
-  right.className = 'row';
-
-  if (status.overdue) {
-    const p = document.createElement('span');
-    p.className = 'pill';
-    p.textContent = 'Overdue';
-    right.appendChild(p);
-  }
-
-  row1.appendChild(left);
-  row1.appendChild(right);
 
   // ROW 2: Actions
   const actions = document.createElement('div');
@@ -562,6 +558,7 @@ function renderItemCard(item, rule, status) {
 </script>
 </body>
 </html>
+
 
 
 
