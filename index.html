@@ -365,7 +365,7 @@ function renderItemCard(item, rule, status) {
   top.appendChild(left);
   top.appendChild(right);
 
-  // INPUT ROW: input + units (tight)
+  // MID ROW: input + units (tight)
   const mid = document.createElement('div');
   mid.className = 'row';
   mid.style.marginTop = '10px';
@@ -373,6 +373,7 @@ function renderItemCard(item, rule, status) {
   // Input control
   let inputEl;
   const type = String(item.type || '').toLowerCase();
+
   if (type === 'boolean') {
     inputEl = document.createElement('input');
     inputEl.type = 'checkbox';
@@ -387,6 +388,10 @@ function renderItemCard(item, rule, status) {
     inputEl = document.createElement('input');
     inputEl.type = 'text';
     inputEl.placeholder = 'Enter…';
+    // text inputs usually need more room
+    inputEl.style.width = '220px';
+    inputEl.style.minWidth = '220px';
+    inputEl.style.textAlign = 'left';
   } else {
     inputEl = document.createElement('input');
     inputEl.type = 'number';
@@ -396,7 +401,6 @@ function renderItemCard(item, rule, status) {
     inputEl.placeholder = '';
   }
 
-  // units (optional, small)
   const unitsEl = document.createElement('span');
   unitsEl.className = 'muted';
   unitsEl.textContent = units || '';
@@ -432,75 +436,48 @@ function renderItemCard(item, rule, status) {
     card.appendChild(h);
   }
 
-    const submitBtn = document.createElement('button');
-    submitBtn.className = 'primary';
-    submitBtn.textContent = 'Submit';
+  // Submit action
+  submitBtn.addEventListener('click', async () => {
+    try {
+      const val =
+        (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
+        (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
+        inputEl.value;
 
-    const clearBtn = document.createElement('button');
-    clearBtn.textContent = 'Clear';
-    clearBtn.title = 'Dismiss this requirement from the UI for today';
-
-    mid.appendChild(inputEl);
-    if (units && type === 'number') {
-      const u = document.createElement('span');
-      u.className = 'muted';
-      u.textContent = units;
-      mid.appendChild(u);
-    }
-    mid.appendChild(submitBtn);
-    mid.appendChild(clearBtn);
-
-    card.appendChild(top);
-    card.appendChild(mid);
-
-    if (help) {
-      const h = document.createElement('div');
-      h.className = 'hint';
-      h.textContent = help;
-      card.appendChild(h);
-    }
-
-    // Submit action (NORMAL MODE)
-    submitBtn.addEventListener('click', async () => {
-      try {
-        const val =
-          (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
-          (type === 'number') ? (inputEl.value === '' ? null : Number(inputEl.value)) :
-          inputEl.value;
-
-        if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
-          toast('Enter a value first');
-          return;
-        }
-
-        const res = await apiPostLog({
-          item_key: item.item_key,
-          value: val,
-          units: units || '',
-          notes: ''
-        });
-
-        if (res.status === 'ok') toast('Saved');
-        else if (res.status === 'duplicate_ignored') toast('Already logged today');
-        else toast('API: ' + JSON.stringify(res));
-
-        await loadAndRender();
-      } catch (e) {
-        toast('Save failed: ' + (e?.message || 'unknown'));
-        console.error(e);
+      if (type !== 'boolean' && (val === null || val === '' || Number.isNaN(val))) {
+        toast('Enter a value first');
+        return;
       }
-    });
 
-    // UI-only clear (dismiss for today)
-    clearBtn.addEventListener('click', async () => {
-      const key = `dismiss_${todayYMD()}_${item.item_key}`;
-      localStorage.setItem(key, '1');
-      toast('Cleared for today');
+      const res = await apiPostLog({
+        item_key: item.item_key,
+        value: val,
+        units: units || '',
+        notes: ''
+      });
+
+      if (res.status === 'ok') toast('Saved');
+      else if (res.status === 'duplicate_ignored') toast('Already logged today');
+      else toast('API: ' + JSON.stringify(res));
+
       await loadAndRender();
-    });
+    } catch (e) {
+      toast('Save failed: ' + (e?.message || 'unknown'));
+      console.error(e);
+    }
+  });
 
-    return card;
-  }
+  // UI-only clear (dismiss for today)
+  clearBtn.addEventListener('click', async () => {
+    const key = `dismiss_${todayYMD()}_${item.item_key}`;
+    localStorage.setItem(key, '1');
+    toast('Cleared for today');
+    await loadAndRender();
+  });
+
+  return card;
+}
+
 
   async function loadAndRender() {
     const today = todayYMD();
@@ -600,6 +577,7 @@ function renderItemCard(item, rule, status) {
 </script>
 </body>
 </html>
+
 
 
 
