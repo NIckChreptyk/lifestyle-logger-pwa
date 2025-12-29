@@ -401,6 +401,9 @@
           units: units || '',
           notes: ''
         });
+        
+        toast(JSON.stringify(res));
+        console.log('log response:', res);
 
         if (res.status === 'ok') toast('Saved');
         else if (res.status === 'duplicate_ignored') toast('Already logged today');
@@ -519,6 +522,7 @@
 </script>
 </body>
 </html>
+
 
 
 
