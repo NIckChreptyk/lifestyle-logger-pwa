@@ -345,12 +345,43 @@ function renderItemCard(item, rule, status) {
   const help = item.help_text || '';
   const units = item.units || '';
 
-  // TOP ROW: Label + (Overdue pill only)
-  const top = document.createElement('div');
-  top.className = 'row';
+  // ROW 1: Label + input (+ overdue)
+  const row1 = document.createElement('div');
+  row1.className = 'row';
 
   const left = document.createElement('div');
+  left.style.display = 'flex';
+  left.style.alignItems = 'center';
+  left.style.gap = '10px';
   left.innerHTML = `<div class="label">${label}</div>`;
+
+  let inputEl;
+  const type = String(item.type || '').toLowerCase();
+
+  if (type === 'boolean') {
+    inputEl = document.createElement('input');
+    inputEl.type = 'checkbox';
+    inputEl.style.transform = 'scale(1.3)';
+  } else if (type === 'text') {
+    inputEl = document.createElement('input');
+    inputEl.type = 'text';
+    inputEl.placeholder = 'Enter…';
+    inputEl.style.width = '180px';
+    inputEl.style.textAlign = 'left';
+  } else {
+    inputEl = document.createElement('input');
+    inputEl.type = 'number';
+    inputEl.placeholder = '';
+  }
+
+  left.appendChild(inputEl);
+
+  if (units) {
+    const u = document.createElement('span');
+    u.className = 'muted';
+    u.textContent = units;
+    left.appendChild(u);
+  }
 
   const right = document.createElement('div');
   right.className = 'row';
@@ -362,54 +393,10 @@ function renderItemCard(item, rule, status) {
     right.appendChild(p);
   }
 
-  top.appendChild(left);
-  top.appendChild(right);
+  row1.appendChild(left);
+  row1.appendChild(right);
 
-  // MID ROW: input + units (tight)
-  const mid = document.createElement('div');
-  mid.className = 'row';
-  mid.style.marginTop = '10px';
-
-  // Input control
-  let inputEl;
-  const type = String(item.type || '').toLowerCase();
-
-  if (type === 'boolean') {
-    inputEl = document.createElement('input');
-    inputEl.type = 'checkbox';
-    inputEl.style.transform = 'scale(1.3)';
-  } else if (type === 'select') {
-    inputEl = document.createElement('select');
-    const opt = document.createElement('option');
-    opt.value = '';
-    opt.textContent = 'Select…';
-    inputEl.appendChild(opt);
-  } else if (type === 'text') {
-    inputEl = document.createElement('input');
-    inputEl.type = 'text';
-    inputEl.placeholder = 'Enter…';
-    // text inputs usually need more room
-    inputEl.style.width = '220px';
-    inputEl.style.minWidth = '220px';
-    inputEl.style.textAlign = 'left';
-  } else {
-    inputEl = document.createElement('input');
-    inputEl.type = 'number';
-    if (item.min !== '' && item.min != null) inputEl.min = item.min;
-    if (item.max !== '' && item.max != null) inputEl.max = item.max;
-    if (item.step !== '' && item.step != null) inputEl.step = item.step;
-    inputEl.placeholder = '';
-  }
-
-  const unitsEl = document.createElement('span');
-  unitsEl.className = 'muted';
-  unitsEl.textContent = units || '';
-  if (!units) unitsEl.style.display = 'none';
-
-  mid.appendChild(inputEl);
-  mid.appendChild(unitsEl);
-
-  // ACTIONS ROW: submit + clear (forced side-by-side)
+  // ROW 2: Actions
   const actions = document.createElement('div');
   actions.className = 'actionsRow';
   actions.style.marginTop = '10px';
@@ -425,8 +412,7 @@ function renderItemCard(item, rule, status) {
   actions.appendChild(submitBtn);
   actions.appendChild(clearBtn);
 
-  card.appendChild(top);
-  card.appendChild(mid);
+  card.appendChild(row1);
   card.appendChild(actions);
 
   if (help) {
@@ -436,7 +422,7 @@ function renderItemCard(item, rule, status) {
     card.appendChild(h);
   }
 
-  // Submit action
+  // Submit handler
   submitBtn.addEventListener('click', async () => {
     try {
       const val =
@@ -462,12 +448,12 @@ function renderItemCard(item, rule, status) {
 
       await loadAndRender();
     } catch (e) {
-      toast('Save failed: ' + (e?.message || 'unknown'));
+      toast('Save failed');
       console.error(e);
     }
   });
 
-  // UI-only clear (dismiss for today)
+  // Clear handler
   clearBtn.addEventListener('click', async () => {
     const key = `dismiss_${todayYMD()}_${item.item_key}`;
     localStorage.setItem(key, '1');
@@ -477,7 +463,6 @@ function renderItemCard(item, rule, status) {
 
   return card;
 }
-
 
   async function loadAndRender() {
     const today = todayYMD();
@@ -577,6 +562,7 @@ function renderItemCard(item, rule, status) {
 </script>
 </body>
 </html>
+
 
 
 
