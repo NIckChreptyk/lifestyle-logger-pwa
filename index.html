@@ -179,13 +179,12 @@
   const u = new URL(url);
   u.searchParams.set('route', 'log');
   u.searchParams.set('api_key', key);
+  u.searchParams.set('item_key', payload.item_key);
+  u.searchParams.set('value', String(payload.value));
+  if (payload.units) u.searchParams.set('units', payload.units);
+  if (payload.notes) u.searchParams.set('notes', payload.notes);
 
-  // IMPORTANT: no JSON content-type header -> avoids CORS preflight
-  const res = await fetch(u.toString(), {
-    method: 'POST',
-    body: JSON.stringify(payload)  // sent as text/plain by default
-  });
-
+  const res = await fetch(u.toString(), { method: 'GET' });
   return await res.json();
 }
 
@@ -520,5 +519,6 @@
 </script>
 </body>
 </html>
+
 
 
