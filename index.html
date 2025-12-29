@@ -102,6 +102,8 @@
   // ---- Storage ----
   const LS_URL = 'lifelogger_api_url';
   const LS_KEY = 'lifelogger_api_key';
+  const LS_DEVICE_TOKEN = 'lifelogger_device_token';
+
 
   // Defaults (you can override in Settings)
   const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbxbXijYH9SIsCb5gdVtBpw4Fien3RZKePE1gNf41h1UageDvvk6jg2pOrNrPavSlOjS/exec";
@@ -163,6 +165,36 @@
     }
     return null;
   }
+  
+  async function apiEnrollDevice(pin, deviceName) {
+    const {url, key} = getApiConfig();
+    const u = new URL(url);
+    u.searchParams.set('route', 'auth');
+    u.searchParams.set('api_key', key);
+    u.searchParams.set('pin', pin);
+    if (deviceName) u.searchParams.set('device_name', deviceName);
+  
+    const res = await fetch(u.toString(), { method: 'GET' });
+    return await res.json();
+  }
+  
+  async function ensureDeviceToken() {
+    let token = localStorage.getItem(LS_DEVICE_TOKEN);
+    if (token) return token;
+  
+    const pin = prompt('Enter setup PIN (one-time on this device):');
+    if (!pin) throw new Error('Setup PIN required');
+  
+    const deviceName = prompt('Optional device name (e.g., Nick iPhone):') || '';
+    const res = await apiEnrollDevice(pin, deviceName);
+  
+    if (res.status !== 'ok' || !res.device_token) {
+      throw new Error('Enroll failed: ' + JSON.stringify(res));
+    }
+  
+    localStorage.setItem(LS_DEVICE_TOKEN, res.device_token);
+    return res.device_token;
+  }
 
   // ---- API ----
   async function apiGet(route) {
@@ -177,14 +209,17 @@
   // CORS-safe write: GET /log
   async function apiPostLog(payload) {
     const {url, key} = getApiConfig();
+    const token = await ensureDeviceToken();
+  
     const u = new URL(url);
     u.searchParams.set('route', 'log');
     u.searchParams.set('api_key', key);
+    u.searchParams.set('device_token', token);
     u.searchParams.set('item_key', payload.item_key);
     u.searchParams.set('value', String(payload.value));
     if (payload.units) u.searchParams.set('units', payload.units);
     if (payload.notes) u.searchParams.set('notes', payload.notes);
-
+  
     const res = await fetch(u.toString(), { method:'GET' });
     return await res.json();
   }
@@ -443,6 +478,16 @@ function buildIndex(logs) {
       return;
     }
 
+
+    try {
+      await ensureDeviceToken();
+    } catch (e) {
+      $('statusLine').innerHTML = `<span class="danger">Device not authorized</span>`;
+      toast(e?.message || 'Setup required');
+      return;
+    }
+  
+    
     let config, logsData;
     try {
       config = await apiGet('config');
@@ -521,4 +566,5 @@ function buildIndex(logs) {
 </script>
 </body>
 </html>
+
 
