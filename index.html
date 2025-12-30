@@ -29,7 +29,7 @@
     /* =========================
       CARDS + ROWS
     ========================== */
-    .card{border:1px solid #222;border-radius:14px;padding:12px;margin-bottom:10px;background:#121212}
+    .card{border:1px solid #222;border-radius:14px;padding:12px;margin-bottom:10px;background:#121212;position:relative}
     .row{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:nowrap}
 
     /* =========================
@@ -799,10 +799,11 @@ function renderItemCard(item, rule, status) {
         
         // Show success indicator with checkmark animation
         const showSuccess = () => {
-          // Ensure card has relative positioning
-          if (card.style.position !== 'relative') {
-            card.style.position = 'relative';
-          }
+          // Ensure card has relative positioning BEFORE adding checkmark
+          card.style.position = 'relative';
+          
+          // Force a reflow to ensure position is applied
+          void card.offsetHeight;
           
           // Create checkmark overlay
           const checkmark = document.createElement('div');
@@ -988,27 +989,25 @@ function showLoadingSkeleton() {
   requiredEl.innerHTML = '';
   optionalEl.innerHTML = '';
   
-  // Create skeleton cards
-  for (let i = 0; i < 3; i++) {
-    const skeletonCard = document.createElement('div');
-    skeletonCard.className = 'card';
-    skeletonCard.innerHTML = `
-      <div class="itemRow">
-        <div class="itemLabel" style="flex:1;">
-          <div class="skeleton" style="height:20px;width:70%;margin-bottom:8px;"></div>
-          <div class="skeleton" style="height:14px;width:50%;"></div>
-        </div>
-        <div style="display:flex;align-items:center;gap:8px;">
-          <div class="skeleton" style="height:40px;width:100px;border-radius:8px;"></div>
-        </div>
+  // Create skeleton card (single card)
+  const skeletonCard = document.createElement('div');
+  skeletonCard.className = 'card';
+  skeletonCard.innerHTML = `
+    <div class="itemRow">
+      <div class="itemLabel" style="flex:1;">
+        <div class="skeleton" style="height:20px;width:70%;margin-bottom:8px;"></div>
+        <div class="skeleton" style="height:14px;width:50%;"></div>
       </div>
-      <div class="actionsRow">
-        <div class="skeleton" style="height:36px;width:80px;border-radius:12px;"></div>
-        <div class="skeleton" style="height:36px;width:70px;border-radius:12px;"></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <div class="skeleton" style="height:40px;width:100px;border-radius:8px;"></div>
       </div>
-    `;
-    requiredEl.appendChild(skeletonCard);
-  }
+    </div>
+    <div class="actionsRow">
+      <div class="skeleton" style="height:36px;width:80px;border-radius:12px;"></div>
+      <div class="skeleton" style="height:36px;width:70px;border-radius:12px;"></div>
+    </div>
+  `;
+  requiredEl.appendChild(skeletonCard);
 }
 
 async function loadAndRender() {
