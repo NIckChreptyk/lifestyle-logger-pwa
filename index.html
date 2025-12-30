@@ -799,18 +799,12 @@ function renderItemCard(item, rule, status) {
         
         // Show success indicator with checkmark animation
         const showSuccess = () => {
-          // Ensure card has relative positioning BEFORE adding checkmark
+          // Ensure card has relative positioning
           card.style.position = 'relative';
           
-          // Force a reflow to ensure position is applied
-          void card.offsetHeight;
-          
-          // Create checkmark overlay
+          // Create checkmark overlay (but don't position it yet)
           const checkmark = document.createElement('div');
           checkmark.style.position = 'absolute';
-          checkmark.style.top = '50%';
-          checkmark.style.left = '50%';
-          checkmark.style.transform = 'translate(-50%, -50%)';
           checkmark.style.width = '48px';
           checkmark.style.height = '48px';
           checkmark.style.borderRadius = '50%';
@@ -819,9 +813,9 @@ function renderItemCard(item, rule, status) {
           checkmark.style.alignItems = 'center';
           checkmark.style.justifyContent = 'center';
           checkmark.style.zIndex = '10';
-          checkmark.style.animation = 'checkmark 0.4s ease-out';
           checkmark.style.boxShadow = '0 4px 12px rgba(92, 184, 92, 0.4)';
           checkmark.style.pointerEvents = 'none';
+          checkmark.style.opacity = '0'; // Start invisible
           
           const checkmarkIcon = document.createElement('div');
           checkmarkIcon.textContent = '✓';
@@ -831,7 +825,23 @@ function renderItemCard(item, rule, status) {
           checkmarkIcon.style.lineHeight = '1';
           checkmark.appendChild(checkmarkIcon);
           
+          // Add to DOM first (invisible)
           card.appendChild(checkmark);
+          
+          // Wait for next frame to ensure layout is complete, then position and animate
+          requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              // Now position it correctly
+              const rect = card.getBoundingClientRect();
+              checkmark.style.top = '50%';
+              checkmark.style.left = '50%';
+              checkmark.style.transform = 'translate(-50%, -50%)';
+              
+              // Make visible and animate
+              checkmark.style.opacity = '1';
+              checkmark.style.animation = 'checkmark 0.4s ease-out';
+            });
+          });
           
           // Show green border flash
           const originalBorderColor = card.style.borderColor || '#222';
