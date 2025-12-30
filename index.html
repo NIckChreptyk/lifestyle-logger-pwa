@@ -199,10 +199,44 @@
       <div class="sectionTitle" id="ruleFormTitle">New Rule</div>
       <div class="card">
         <div style="margin-bottom:12px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:8px;">
+            <input type="checkbox" id="ruleCreateNewItem" />
+            <span class="label">Create new item</span>
+          </label>
+        </div>
+
+        <div id="ruleExistingItemSection" style="margin-bottom:12px;">
           <div class="label">Item</div>
           <select id="ruleItemKey" style="width:100%;">
             <option value="">Select an item...</option>
           </select>
+        </div>
+
+        <div id="ruleNewItemSection" style="margin-bottom:12px;display:none;">
+          <div style="margin-bottom:12px;">
+            <div class="label">Item Label</div>
+            <div class="hint">The display name for this item</div>
+            <input type="text" id="ruleItemLabel" placeholder="e.g., Body Weight" style="width:100%;" />
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <div class="label">Item Type</div>
+            <select id="ruleItemType" style="width:100%;">
+              <option value="boolean">Boolean (True/False)</option>
+              <option value="number">Number (Value)</option>
+              <option value="text">Text</option>
+            </select>
+          </div>
+
+          <div id="ruleItemUnitsSection" style="margin-bottom:12px;display:none;">
+            <div class="label">Units</div>
+            <div class="hint">Unit of measure (e.g., lb, kg, mg, in, cm)</div>
+            <input type="text" id="ruleItemUnits" placeholder="lb" style="width:100%;" />
+          </div>
+
+          <div class="hint" id="ruleItemKeyPreview" style="margin-top:8px;font-style:italic;">
+            Item key will be auto-generated
+          </div>
         </div>
 
         <div style="margin-bottom:12px;">
@@ -450,6 +484,25 @@ async function apiDeleteRule(rule_id) {
   u.searchParams.set('api_key', key);
   u.searchParams.set('device_token', token);
   u.searchParams.set('rule_id', rule_id);
+
+  const res = await fetch(u.toString(), { method:'GET' });
+  return await res.json();
+}
+
+// Item management: GET /item_upsert
+async function apiUpsertItem(itemData) {
+  const {url, key} = getApiConfig();
+  const token = await ensureDeviceToken();
+
+  const u = new URL(url);
+  u.searchParams.set('route', 'item_upsert');
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('device_token', token);
+  u.searchParams.set('item_key', itemData.item_key);
+  u.searchParams.set('label', itemData.label);
+  u.searchParams.set('type', itemData.type);
+  if (itemData.units) u.searchParams.set('units', itemData.units);
+  u.searchParams.set('enabled', itemData.enabled ? 'TRUE' : 'FALSE');
 
   const res = await fetch(u.toString(), { method:'GET' });
   return await res.json();
@@ -789,6 +842,8 @@ function showRuleForm(rule = null) {
     title.textContent = `Edit Rule: ${rule.rule_id}`;
     deleteBtn.style.display = 'block';
     
+    // When editing, always use existing item
+    $('ruleCreateNewItem').checked = false;
     $('ruleItemKey').value = rule.item_key || '';
     $('ruleSeverity').value = rule.severity || 'required';
     $('ruleEnabled').checked = String(rule.enabled).toLowerCase() === 'true';
@@ -797,10 +852,17 @@ function showRuleForm(rule = null) {
     $('ruleWeeklyDays').value = rule.weekly_days || '';
     $('ruleRrule').value = rule.rrule || '';
     $('ruleNagIfMissed').checked = String(rule.nag_if_missed).toLowerCase() === 'true';
+    
+    // Clear new item fields
+    $('ruleItemLabel').value = '';
+    $('ruleItemType').value = 'boolean';
+    $('ruleItemUnits').value = '';
   } else {
     title.textContent = 'New Rule';
     deleteBtn.style.display = 'none';
     
+    // Default to creating new item for new rules
+    $('ruleCreateNewItem').checked = true;
     $('ruleItemKey').value = '';
     $('ruleSeverity').value = 'required';
     $('ruleEnabled').checked = true;
@@ -809,8 +871,14 @@ function showRuleForm(rule = null) {
     $('ruleWeeklyDays').value = '';
     $('ruleRrule').value = '';
     $('ruleNagIfMissed').checked = true;
+    
+    // Clear new item fields
+    $('ruleItemLabel').value = '';
+    $('ruleItemType').value = 'boolean';
+    $('ruleItemUnits').value = '';
   }
   
+  updateItemFields();
   updateScheduleFields();
   formSection.style.display = 'block';
   formSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -826,6 +894,44 @@ function updateScheduleFields() {
   $('ruleIntervalDaysSection').style.display = scheduleType === 'interval_days' ? 'block' : 'none';
   $('ruleWeeklyDaysSection').style.display = scheduleType === 'weekly' ? 'block' : 'none';
   $('ruleRruleSection').style.display = scheduleType === 'rrule' ? 'block' : 'none';
+}
+
+function updateItemFields() {
+  const createNew = $('ruleCreateNewItem').checked;
+  $('ruleExistingItemSection').style.display = createNew ? 'none' : 'block';
+  $('ruleNewItemSection').style.display = createNew ? 'block' : 'none';
+  
+  if (createNew) {
+    updateItemTypeFields();
+    updateItemKeyPreview();
+  }
+}
+
+function updateItemTypeFields() {
+  const itemType = $('ruleItemType').value;
+  $('ruleItemUnitsSection').style.display = itemType === 'number' ? 'block' : 'none';
+  updateItemKeyPreview();
+}
+
+function generateItemKey(label) {
+  if (!label) return '';
+  // Convert to lowercase, replace spaces and special chars with underscores
+  return label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+}
+
+function updateItemKeyPreview() {
+  const label = $('ruleItemLabel').value.trim();
+  const itemKey = generateItemKey(label);
+  const preview = $('ruleItemKeyPreview');
+  if (itemKey) {
+    preview.textContent = `Item key: ${itemKey}`;
+    preview.style.display = 'block';
+  } else {
+    preview.style.display = 'none';
+  }
 }
 
 function populateItemDropdown() {
@@ -932,7 +1038,61 @@ function editRule(rule_id) {
 }
 
 async function saveRule() {
-  const itemKey = $('ruleItemKey').value.trim();
+  const createNewItem = $('ruleCreateNewItem').checked;
+  let itemKey = '';
+  
+  // Handle item creation/selection
+  if (createNewItem) {
+    const label = $('ruleItemLabel').value.trim();
+    const itemType = $('ruleItemType').value;
+    const units = $('ruleItemUnits').value.trim();
+    
+    if (!label) {
+      toast('Please enter an item label');
+      return;
+    }
+    
+    itemKey = generateItemKey(label);
+    if (!itemKey) {
+      toast('Invalid item label');
+      return;
+    }
+    
+    // Check if item already exists
+    const existingItem = allItems.find(i => i.item_key === itemKey);
+    if (existingItem) {
+      toast('Item with this key already exists. Please use a different label.');
+      return;
+    }
+    
+    // Create the new item first
+    try {
+      const itemRes = await apiUpsertItem({
+        item_key: itemKey,
+        label: label,
+        type: itemType,
+        units: itemType === 'number' ? units : '',
+        enabled: true
+      });
+      
+      if (itemRes.status !== 'ok') {
+        toast('Failed to create item: ' + JSON.stringify(itemRes));
+        return;
+      }
+    } catch (e) {
+      toast('Failed to create item');
+      console.error(e);
+      return;
+    }
+  } else {
+    itemKey = $('ruleItemKey').value.trim();
+    if (!itemKey) {
+      toast('Please select an item');
+      return;
+    }
+  }
+  
+  // Validate rule fields
   const severity = $('ruleSeverity').value;
   const enabled = $('ruleEnabled').checked;
   const scheduleType = $('ruleScheduleType').value;
@@ -940,12 +1100,6 @@ async function saveRule() {
   const weeklyDays = $('ruleWeeklyDays').value.trim();
   const rrule = $('ruleRrule').value.trim();
   const nagIfMissed = $('ruleNagIfMissed').checked;
-  
-  // Validation
-  if (!itemKey) {
-    toast('Please select an item');
-    return;
-  }
   
   if (scheduleType === 'interval_days') {
     const n = Number(intervalDays);
@@ -1074,6 +1228,9 @@ $('btnCancelRule').addEventListener('click', hideRuleForm);
 $('btnSaveRule').addEventListener('click', saveRule);
 $('btnDeleteRule').addEventListener('click', deleteRule);
 $('ruleScheduleType').addEventListener('change', updateScheduleFields);
+$('ruleCreateNewItem').addEventListener('change', updateItemFields);
+$('ruleItemType').addEventListener('change', updateItemTypeFields);
+$('ruleItemLabel').addEventListener('input', updateItemKeyPreview);
 
 /* ============================================================
   SECTION 12 — INIT
