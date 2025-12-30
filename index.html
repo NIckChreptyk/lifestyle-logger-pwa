@@ -787,6 +787,16 @@ function renderItemCard(item, rule, status) {
       });
 
       if (res.status === 'ok') {
+        // Optimistic UI update: update logIndex locally
+        if (globalLogIndex) {
+          const itemKey = item.item_key;
+          if (!globalLogIndex.loggedOn.has(itemKey)) {
+            globalLogIndex.loggedOn.set(itemKey, new Set());
+          }
+          globalLogIndex.loggedOn.get(itemKey).add(globalToday);
+          globalLogIndex.latest.set(itemKey, globalToday);
+        }
+        
         // Show success indicator with checkmark animation
         const showSuccess = () => {
           // Ensure card has relative positioning
@@ -837,34 +847,60 @@ function renderItemCard(item, rule, status) {
           }, 1000);
         };
         
+        // Determine which list this card belongs to (before removal)
+        const requiredEl = $('requiredList');
+        const optionalEl = $('optionalList');
+        const isRequired = card.parentElement === requiredEl;
+        
+        // Update status line count optimistically
+        const updateStatusLine = () => {
+          const requiredCount = requiredEl.children.length; // Card already removed at this point
+          const optionalCount = optionalEl.children.length;
+          $('statusLine').textContent = requiredCount === 0 
+            ? `✅ All required items completed! • Optional: ${optionalCount}`
+            : `Required: ${requiredCount} • Optional: ${optionalCount}`;
+        };
+        
         if (type === 'boolean') {
           // Restore opacity and show green border, keep it green until card disappears
           card.style.opacity = '1';
           showSuccess();
           toast('Saved');
-          // Keep green border visible, then fade out and reload
-          setTimeout(async () => {
+          // Keep green border visible, then fade out (no reload needed!)
+          setTimeout(() => {
             card.style.opacity = '0';
             card.style.transition = 'opacity 0.3s ease';
-            setTimeout(async () => {
-              await loadAndRender();
+            setTimeout(() => {
+              card.remove(); // Remove card immediately
+              updateStatusLine(); // Update status line
+              // Check if we should show success state (only for required items)
+              if (isRequired && requiredEl.children.length === 0) {
+                // All required items done, trigger success state check
+                loadAndRender(); // Only reload to show success state
+              }
             }, 300);
           }, 800);
-          return; // Exit early to prevent double reload
+          return; // Exit early
         } else {
           // For number/text items: show checkmark, then smooth slide-out
           showSuccess();
           toast('Saved');
           
-          // After checkmark animation, slide out the card
+          // After checkmark animation, slide out the card (no reload needed!)
           setTimeout(() => {
             card.style.animation = 'slideOut 0.4s ease-out';
             card.style.opacity = '0';
-            setTimeout(async () => {
-              await loadAndRender();
+            setTimeout(() => {
+              card.remove(); // Remove card immediately
+              updateStatusLine(); // Update status line
+              // Check if we should show success state (only for required items)
+              if (isRequired && requiredEl.children.length === 0) {
+                // All required items done, trigger success state check
+                loadAndRender(); // Only reload to show success state
+              }
             }, 400);
           }, 600);
-          return; // Exit early to prevent double reload
+          return; // Exit early
         }
       } else if (res.status === 'duplicate_ignored') {
         toast('Already logged today');
@@ -940,6 +976,10 @@ function renderItemCard(item, rule, status) {
 /* ============================================================
   SECTION 8 — MAIN LOAD + RENDER LOOP
 ============================================================ */
+// Global state for optimistic updates
+let globalLogIndex = null;
+let globalToday = '';
+
 function showLoadingSkeleton() {
   const requiredEl = $('requiredList');
   const optionalEl = $('optionalList');
@@ -1009,6 +1049,8 @@ async function loadAndRender() {
   const logs = (logsData.logs || []);
 
   const logIndex = buildIndex(logs);
+  globalLogIndex = logIndex; // Store globally for optimistic updates
+  globalToday = today; // Store today for optimistic updates
   const itemByKey = new Map(items.map(i => [String(i.item_key), i]));
 
   const requiredEl = $('requiredList');
