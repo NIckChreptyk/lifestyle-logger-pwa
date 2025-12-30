@@ -60,7 +60,8 @@
     .toast{
       position:fixed;bottom:14px;left:50%;transform:translateX(-50%);
       background:#121212;border:1px solid #2a2a2a;padding:10px 12px;border-radius:12px;
-      display:none;max-width:92vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis
+      display:none;max-width:92vw;white-space:normal;word-wrap:break-word;z-index:2147483647;
+      box-shadow:0 4px 12px rgba(0,0,0,0.5);
     }
 
     /* =========================
@@ -326,12 +327,17 @@ function getApiConfig() {
 ============================================================ */
 const $ = (id) => document.getElementById(id);
 
-function toast(msg) {
+function toast(msg, duration = 2200) {
   const el = $('toast');
   el.textContent = msg;
   el.style.display = 'block';
   clearTimeout(window.__t);
-  window.__t = setTimeout(()=> el.style.display = 'none', 2200);
+  window.__t = setTimeout(()=> el.style.display = 'none', duration);
+}
+
+function toastError(msg) {
+  console.error('Toast Error:', msg);
+  toast(msg, 8000); // Show for 8 seconds instead of 2.2
 }
 
 function todayYMD() {
@@ -504,8 +510,19 @@ async function apiUpsertItem(itemData) {
   if (itemData.units) u.searchParams.set('units', itemData.units);
   u.searchParams.set('enabled', itemData.enabled ? 'TRUE' : 'FALSE');
 
-  const res = await fetch(u.toString(), { method:'GET' });
-  return await res.json();
+  console.log('apiUpsertItem - Full URL:', u.toString());
+  console.log('apiUpsertItem - Request data:', itemData);
+  
+  try {
+    const res = await fetch(u.toString(), { method:'GET' });
+    const json = await res.json();
+    console.log('apiUpsertItem - Response status:', res.status);
+    console.log('apiUpsertItem - Response data:', json);
+    return json;
+  } catch (e) {
+    console.error('apiUpsertItem - Fetch error:', e);
+    throw e;
+  }
 }
 
 /* ============================================================
@@ -1041,11 +1058,15 @@ async function saveRule() {
   const createNewItem = $('ruleCreateNewItem').checked;
   let itemKey = '';
   
+  console.log('saveRule called, createNewItem:', createNewItem);
+  
   // Handle item creation/selection
   if (createNewItem) {
     const label = $('ruleItemLabel').value.trim();
     const itemType = $('ruleItemType').value;
     const units = $('ruleItemUnits').value.trim();
+    
+    console.log('Creating new item:', { label, itemType, units });
     
     if (!label) {
       toast('Please enter an item label');
@@ -1053,6 +1074,8 @@ async function saveRule() {
     }
     
     itemKey = generateItemKey(label);
+    console.log('Generated item_key:', itemKey);
+    
     if (!itemKey) {
       toast('Invalid item label');
       return;
@@ -1067,25 +1090,34 @@ async function saveRule() {
     
     // Create the new item first
     try {
-      const itemRes = await apiUpsertItem({
+      const itemData = {
         item_key: itemKey,
         label: label,
         type: itemType,
         units: itemType === 'number' ? units : '',
         enabled: true
-      });
+      };
+      console.log('Calling apiUpsertItem with:', itemData);
+      
+      const itemRes = await apiUpsertItem(itemData);
+      console.log('apiUpsertItem response:', itemRes);
       
       if (itemRes.status !== 'ok') {
-        toast('Failed to create item: ' + JSON.stringify(itemRes));
+        const errorMsg = 'Failed to create item: ' + JSON.stringify(itemRes);
+        toastError(errorMsg);
+        console.error('Item creation failed:', itemRes);
         return;
       }
     } catch (e) {
-      toast('Failed to create item');
-      console.error(e);
+      const errorMsg = 'Failed to create item: ' + (e.message || e.toString());
+      toastError(errorMsg);
+      console.error('Item creation error:', e);
+      console.error('Error stack:', e.stack);
       return;
     }
   } else {
     itemKey = $('ruleItemKey').value.trim();
+    console.log('Using existing item:', itemKey);
     if (!itemKey) {
       toast('Please select an item');
       return;
@@ -1100,6 +1132,8 @@ async function saveRule() {
   const weeklyDays = $('ruleWeeklyDays').value.trim();
   const rrule = $('ruleRrule').value.trim();
   const nagIfMissed = $('ruleNagIfMissed').checked;
+  
+  console.log('Rule data:', { itemKey, severity, enabled, scheduleType, intervalDays, weeklyDays, rrule, nagIfMissed });
   
   if (scheduleType === 'interval_days') {
     const n = Number(intervalDays);
@@ -1135,7 +1169,9 @@ async function saveRule() {
       ruleData.rule_id = generateRuleId(itemKey, scheduleType);
     }
     
+    console.log('Calling apiUpsertRule with:', ruleData);
     const res = await apiUpsertRule(ruleData);
+    console.log('apiUpsertRule response:', res);
     
     if (res.status === 'ok') {
       toast('Rule saved');
@@ -1144,11 +1180,16 @@ async function saveRule() {
       hideRuleForm();
       await loadAndRender(); // Refresh main view
     } else {
-      toast('Save failed: ' + JSON.stringify(res));
+      const errorMsg = 'Save failed: ' + JSON.stringify(res);
+      toastError(errorMsg);
+      console.error('Rule save failed:', res);
     }
   } catch (e) {
-    toast('Save failed');
-    console.error(e);
+    const errorMsg = 'Save failed: ' + (e.message || e.toString());
+    toastError(errorMsg);
+    console.error('Rule save error:', e);
+    console.error('Error stack:', e.stack);
+    console.error('Error message:', e.message);
   }
 }
 
