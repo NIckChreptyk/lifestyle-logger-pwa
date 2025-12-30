@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0b0b0b" />
   <link rel="manifest" href="/manifest.json" />
-  <title>Life Logger</title>
+  <title>Pulse Logger</title>
 
   <style>
     /* =========================
@@ -150,7 +150,7 @@
   ========================== -->
   <header>
     <div>
-      <div style="font-weight:900;">Life Logger</div>
+      <div style="font-weight:900;">Pulse Logger</div>
       <div class="small muted" id="statusLine">Loading…</div>
     </div>
     <div class="row">
@@ -333,13 +333,13 @@ if ('serviceWorker' in navigator) {
 /* ============================================================
   SECTION 2 — STORAGE + CONFIG
 ============================================================ */
-const LS_URL = 'lifelogger_api_url';
-const LS_KEY = 'lifelogger_api_key';
-const LS_DEVICE_TOKEN = 'lifelogger_device_token';
-const LS_CONFIG_CACHE = 'lifelogger_config_cache';
+const LS_URL = 'pulselogger_api_url';
+const LS_KEY = 'pulselogger_api_key';
+const LS_DEVICE_TOKEN = 'pulselogger_device_token';
+const LS_CONFIG_CACHE = 'pulselogger_config_cache';
 
 const DEFAULT_URL = "https://script.google.com/macros/s/AKfycbxbXijYH9SIsCb5gdVtBpw4Fien3RZKePE1gNf41h1UageDvvk6jg2pOrNrPavSlOjS/exec";
-const DEFAULT_KEY = "lifelogger_fitness_v1_9f3kA72Qm";
+const DEFAULT_KEY = "pulselogger_fitness_v1_9f3kA72Qm";
 
 function getApiConfig() {
   return {
