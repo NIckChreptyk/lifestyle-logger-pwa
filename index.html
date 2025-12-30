@@ -125,6 +125,7 @@
     </div>
     <div class="row">
       <button id="btnRefresh">Refresh</button>
+      <button id="btnRules">Rules</button>
       <button id="btnSettings">Settings</button>
     </div>
   </header>
@@ -176,6 +177,88 @@
 
     <div class="hint">
       If you rotate your key, update both Apps Script and this Settings screen.
+    </div>
+  </dialog>
+
+  <!-- =========================
+    RULE MANAGEMENT DIALOG
+  ========================== -->
+  <dialog id="rulesDlg" style="border:1px solid #2a2a2a;border-radius:16px;background:#121212;color:#f2f2f2;max-width:720px;width:92%;max-height:90vh;overflow-y:auto;">
+    <div class="row" style="margin-bottom:10px;">
+      <div style="font-weight:900;">Manage Rules</div>
+      <button id="btnCloseRules">Close</button>
+    </div>
+
+    <div style="margin-bottom:16px;">
+      <button class="primary" id="btnAddRule">+ Add New Rule</button>
+    </div>
+
+    <div id="rulesList" style="margin-bottom:20px;"></div>
+
+    <div id="ruleFormSection" style="display:none;">
+      <div class="sectionTitle" id="ruleFormTitle">New Rule</div>
+      <div class="card">
+        <div style="margin-bottom:12px;">
+          <div class="label">Item</div>
+          <select id="ruleItemKey" style="width:100%;">
+            <option value="">Select an item...</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <div class="label">Severity</div>
+          <select id="ruleSeverity" style="width:100%;">
+            <option value="required">Required</option>
+            <option value="optional">Optional</option>
+          </select>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="ruleEnabled" checked />
+            <span class="label">Enabled</span>
+          </label>
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <div class="label">Schedule Type</div>
+          <select id="ruleScheduleType" style="width:100%;">
+            <option value="daily">Daily</option>
+            <option value="interval_days">Interval (every N days)</option>
+            <option value="weekly">Weekly</option>
+            <option value="rrule">RRULE (iCal)</option>
+          </select>
+        </div>
+
+        <div id="ruleIntervalDaysSection" style="margin-bottom:12px;display:none;">
+          <div class="label">Interval Days</div>
+          <input type="number" id="ruleIntervalDays" min="1" step="1" style="width:100%;" />
+        </div>
+
+        <div id="ruleWeeklyDaysSection" style="margin-bottom:12px;display:none;">
+          <div class="label">Weekly Days</div>
+          <div class="hint">Comma-separated: Mon, Tue, Wed, Thu, Fri, Sat, Sun</div>
+          <input type="text" id="ruleWeeklyDays" placeholder="Mon,Thu" style="width:100%;" />
+        </div>
+
+        <div id="ruleRruleSection" style="margin-bottom:12px;display:none;">
+          <div class="label">RRULE</div>
+          <input type="text" id="ruleRrule" placeholder="FREQ=WEEKLY;BYDAY=MO,WE" style="width:100%;" />
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <input type="checkbox" id="ruleNagIfMissed" checked />
+            <span class="label">Nag if Missed</span>
+          </label>
+        </div>
+
+        <div class="row">
+          <button class="primary" id="btnSaveRule">Save Rule</button>
+          <button id="btnCancelRule">Cancel</button>
+          <button id="btnDeleteRule" style="display:none;">Delete</button>
+        </div>
+      </div>
     </div>
   </dialog>
 
@@ -311,6 +394,62 @@ async function apiPostLog(payload) {
   u.searchParams.set('value', String(payload.value));
   if (payload.units) u.searchParams.set('units', payload.units);
   if (payload.notes) u.searchParams.set('notes', payload.notes);
+
+  const res = await fetch(u.toString(), { method:'GET' });
+  return await res.json();
+}
+
+// Rule management: GET /rule_upsert
+async function apiUpsertRule(ruleData) {
+  const {url, key} = getApiConfig();
+  const token = await ensureDeviceToken();
+
+  const u = new URL(url);
+  u.searchParams.set('route', 'rule_upsert');
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('device_token', token);
+  
+  if (ruleData.rule_id) u.searchParams.set('rule_id', ruleData.rule_id);
+  u.searchParams.set('item_key', ruleData.item_key);
+  u.searchParams.set('severity', ruleData.severity);
+  u.searchParams.set('enabled', ruleData.enabled ? 'TRUE' : 'FALSE');
+  u.searchParams.set('schedule_type', ruleData.schedule_type);
+  
+  // Only include schedule-specific fields if applicable
+  if (ruleData.schedule_type === 'interval_days') {
+    u.searchParams.set('interval_days', String(ruleData.interval_days || ''));
+  } else {
+    u.searchParams.set('interval_days', '');
+  }
+  
+  if (ruleData.schedule_type === 'weekly') {
+    u.searchParams.set('weekly_days', String(ruleData.weekly_days || ''));
+  } else {
+    u.searchParams.set('weekly_days', '');
+  }
+  
+  if (ruleData.schedule_type === 'rrule') {
+    u.searchParams.set('rrule', String(ruleData.rrule || ''));
+  } else {
+    u.searchParams.set('rrule', '');
+  }
+  
+  u.searchParams.set('nag_if_missed', ruleData.nag_if_missed ? 'TRUE' : 'FALSE');
+
+  const res = await fetch(u.toString(), { method:'GET' });
+  return await res.json();
+}
+
+// Rule management: GET /rule_delete
+async function apiDeleteRule(rule_id) {
+  const {url, key} = getApiConfig();
+  const token = await ensureDeviceToken();
+
+  const u = new URL(url);
+  u.searchParams.set('route', 'rule_delete');
+  u.searchParams.set('api_key', key);
+  u.searchParams.set('device_token', token);
+  u.searchParams.set('rule_id', rule_id);
 
   const res = await fetch(u.toString(), { method:'GET' });
   return await res.json();
@@ -622,7 +761,289 @@ async function loadAndRender() {
 }
 
 /* ============================================================
-  SECTION 9 — SETTINGS WIRING
+  SECTION 9 — RULE MANAGEMENT
+============================================================ */
+let currentEditingRuleId = null;
+let allItems = [];
+let allRules = [];
+
+function validateWeeklyDays(daysStr) {
+  if (!daysStr) return false;
+  const validDays = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+  const days = parseWeekdays(daysStr);
+  return days.length > 0 && days.every(d => validDays.includes(d));
+}
+
+function generateRuleId(item_key, schedule_type) {
+  return `${item_key}_${schedule_type}`;
+}
+
+function showRuleForm(rule = null) {
+  const formSection = $('ruleFormSection');
+  const title = $('ruleFormTitle');
+  const deleteBtn = $('btnDeleteRule');
+  
+  currentEditingRuleId = rule ? rule.rule_id : null;
+  
+  if (rule) {
+    title.textContent = `Edit Rule: ${rule.rule_id}`;
+    deleteBtn.style.display = 'block';
+    
+    $('ruleItemKey').value = rule.item_key || '';
+    $('ruleSeverity').value = rule.severity || 'required';
+    $('ruleEnabled').checked = String(rule.enabled).toLowerCase() === 'true';
+    $('ruleScheduleType').value = rule.schedule_type || 'daily';
+    $('ruleIntervalDays').value = rule.interval_days || '';
+    $('ruleWeeklyDays').value = rule.weekly_days || '';
+    $('ruleRrule').value = rule.rrule || '';
+    $('ruleNagIfMissed').checked = String(rule.nag_if_missed).toLowerCase() === 'true';
+  } else {
+    title.textContent = 'New Rule';
+    deleteBtn.style.display = 'none';
+    
+    $('ruleItemKey').value = '';
+    $('ruleSeverity').value = 'required';
+    $('ruleEnabled').checked = true;
+    $('ruleScheduleType').value = 'daily';
+    $('ruleIntervalDays').value = '';
+    $('ruleWeeklyDays').value = '';
+    $('ruleRrule').value = '';
+    $('ruleNagIfMissed').checked = true;
+  }
+  
+  updateScheduleFields();
+  formSection.style.display = 'block';
+  formSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function hideRuleForm() {
+  $('ruleFormSection').style.display = 'none';
+  currentEditingRuleId = null;
+}
+
+function updateScheduleFields() {
+  const scheduleType = $('ruleScheduleType').value;
+  $('ruleIntervalDaysSection').style.display = scheduleType === 'interval_days' ? 'block' : 'none';
+  $('ruleWeeklyDaysSection').style.display = scheduleType === 'weekly' ? 'block' : 'none';
+  $('ruleRruleSection').style.display = scheduleType === 'rrule' ? 'block' : 'none';
+}
+
+function populateItemDropdown() {
+  const select = $('ruleItemKey');
+  const enabledItems = allItems.filter(i => String(i.enabled).toLowerCase() === 'true');
+  
+  // Clear existing options except the first one
+  while (select.options.length > 1) {
+    select.remove(1);
+  }
+  
+  enabledItems.forEach(item => {
+    const option = document.createElement('option');
+    option.value = item.item_key;
+    option.textContent = `${item.label || item.item_key} (${item.item_key})`;
+    select.appendChild(option);
+  });
+}
+
+function renderRulesList() {
+  const container = $('rulesList');
+  container.innerHTML = '';
+  
+  if (allRules.length === 0) {
+    container.innerHTML = '<div class="muted">No rules found.</div>';
+    return;
+  }
+  
+  allRules.forEach(rule => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    
+    const item = allItems.find(i => i.item_key === rule.item_key);
+    const itemLabel = item ? item.label : rule.item_key;
+    const enabled = String(rule.enabled).toLowerCase() === 'true';
+    
+    let scheduleDesc = '';
+    if (rule.schedule_type === 'daily') {
+      scheduleDesc = 'Daily';
+    } else if (rule.schedule_type === 'interval_days') {
+      scheduleDesc = `Every ${rule.interval_days} days`;
+    } else if (rule.schedule_type === 'weekly') {
+      scheduleDesc = `Weekly: ${rule.weekly_days || 'N/A'}`;
+    } else if (rule.schedule_type === 'rrule') {
+      scheduleDesc = `RRULE: ${rule.rrule || 'N/A'}`;
+    }
+    
+    const row = document.createElement('div');
+    row.className = 'row';
+    row.style.alignItems = 'flex-start';
+    
+    const leftDiv = document.createElement('div');
+    leftDiv.style.flex = '1';
+    
+    const labelDiv = document.createElement('div');
+    labelDiv.className = 'label';
+    labelDiv.textContent = itemLabel;
+    
+    const infoDiv = document.createElement('div');
+    infoDiv.className = 'small muted';
+    infoDiv.style.marginTop = '4px';
+    infoDiv.textContent = `${rule.rule_id} • ${rule.severity} • ${scheduleDesc}`;
+    
+    const pillsDiv = document.createElement('div');
+    pillsDiv.style.marginTop = '4px';
+    
+    const enabledPill = document.createElement('span');
+    enabledPill.className = 'pill';
+    if (!enabled) enabledPill.style.opacity = '0.5';
+    enabledPill.textContent = enabled ? 'Enabled' : 'Disabled';
+    pillsDiv.appendChild(enabledPill);
+    
+    if (String(rule.nag_if_missed).toLowerCase() === 'true') {
+      const nagPill = document.createElement('span');
+      nagPill.className = 'pill';
+      nagPill.textContent = 'Nag';
+      nagPill.style.marginLeft = '6px';
+      pillsDiv.appendChild(nagPill);
+    }
+    
+    leftDiv.appendChild(labelDiv);
+    leftDiv.appendChild(infoDiv);
+    leftDiv.appendChild(pillsDiv);
+    
+    const rightDiv = document.createElement('div');
+    const editBtn = document.createElement('button');
+    editBtn.textContent = 'Edit';
+    editBtn.addEventListener('click', () => editRule(rule.rule_id));
+    rightDiv.appendChild(editBtn);
+    
+    row.appendChild(leftDiv);
+    row.appendChild(rightDiv);
+    card.appendChild(row);
+    
+    container.appendChild(card);
+  });
+}
+
+function editRule(rule_id) {
+  const rule = allRules.find(r => r.rule_id === rule_id);
+  if (rule) {
+    showRuleForm(rule);
+  }
+}
+
+async function saveRule() {
+  const itemKey = $('ruleItemKey').value.trim();
+  const severity = $('ruleSeverity').value;
+  const enabled = $('ruleEnabled').checked;
+  const scheduleType = $('ruleScheduleType').value;
+  const intervalDays = $('ruleIntervalDays').value.trim();
+  const weeklyDays = $('ruleWeeklyDays').value.trim();
+  const rrule = $('ruleRrule').value.trim();
+  const nagIfMissed = $('ruleNagIfMissed').checked;
+  
+  // Validation
+  if (!itemKey) {
+    toast('Please select an item');
+    return;
+  }
+  
+  if (scheduleType === 'interval_days') {
+    const n = Number(intervalDays);
+    if (!n || n < 1) {
+      toast('Interval days must be a positive number');
+      return;
+    }
+  }
+  
+  if (scheduleType === 'weekly') {
+    if (!weeklyDays || !validateWeeklyDays(weeklyDays)) {
+      toast('Please enter valid weekly days (e.g., Mon,Thu)');
+      return;
+    }
+  }
+  
+  try {
+    const ruleData = {
+      item_key: itemKey,
+      severity: severity,
+      enabled: enabled,
+      schedule_type: scheduleType,
+      interval_days: scheduleType === 'interval_days' ? intervalDays : '',
+      weekly_days: scheduleType === 'weekly' ? weeklyDays : '',
+      rrule: scheduleType === 'rrule' ? rrule : '',
+      nag_if_missed: nagIfMissed
+    };
+    
+    if (currentEditingRuleId) {
+      ruleData.rule_id = currentEditingRuleId;
+    } else {
+      // Auto-generate rule_id for new rules
+      ruleData.rule_id = generateRuleId(itemKey, scheduleType);
+    }
+    
+    const res = await apiUpsertRule(ruleData);
+    
+    if (res.status === 'ok') {
+      toast('Rule saved');
+      await loadRulesData();
+      renderRulesList();
+      hideRuleForm();
+      await loadAndRender(); // Refresh main view
+    } else {
+      toast('Save failed: ' + JSON.stringify(res));
+    }
+  } catch (e) {
+    toast('Save failed');
+    console.error(e);
+  }
+}
+
+async function deleteRule() {
+  if (!currentEditingRuleId) return;
+  
+  if (!confirm(`Delete rule "${currentEditingRuleId}"? This cannot be undone.`)) {
+    return;
+  }
+  
+  try {
+    const res = await apiDeleteRule(currentEditingRuleId);
+    
+    if (res.status === 'ok') {
+      toast('Rule deleted');
+      await loadRulesData();
+      renderRulesList();
+      hideRuleForm();
+      await loadAndRender(); // Refresh main view
+    } else {
+      toast('Delete failed: ' + JSON.stringify(res));
+    }
+  } catch (e) {
+    toast('Delete failed');
+    console.error(e);
+  }
+}
+
+async function loadRulesData() {
+  try {
+    const config = await apiGet('config');
+    allItems = config.items || [];
+    allRules = config.rules || []; // Get all rules, not just enabled
+    populateItemDropdown();
+  } catch (e) {
+    console.error('Failed to load rules data:', e);
+    toast('Failed to load rules');
+  }
+}
+
+async function openRulesDialog() {
+  await loadRulesData();
+  renderRulesList();
+  hideRuleForm();
+  $('rulesDlg').showModal();
+}
+
+/* ============================================================
+  SECTION 10 — SETTINGS WIRING
 ============================================================ */
 $('btnSettings').addEventListener('click', () => $('settingsDlg').showModal());
 $('btnCloseSettings').addEventListener('click', () => $('settingsDlg').close());
@@ -644,7 +1065,18 @@ $('btnLoadDefault').addEventListener('click', () => {
 $('btnRefresh').addEventListener('click', loadAndRender);
 
 /* ============================================================
-  SECTION 10 — INIT
+  SECTION 11 — RULE MANAGEMENT WIRING
+============================================================ */
+$('btnRules').addEventListener('click', openRulesDialog);
+$('btnCloseRules').addEventListener('click', () => $('rulesDlg').close());
+$('btnAddRule').addEventListener('click', () => showRuleForm());
+$('btnCancelRule').addEventListener('click', hideRuleForm);
+$('btnSaveRule').addEventListener('click', saveRule);
+$('btnDeleteRule').addEventListener('click', deleteRule);
+$('ruleScheduleType').addEventListener('change', updateScheduleFields);
+
+/* ============================================================
+  SECTION 12 — INIT
 ============================================================ */
 const init = getApiConfig();
 $('cfgUrl').value = init.url;
