@@ -914,8 +914,11 @@ async function loadAndRender() {
 
   let config, logsData;
   try {
-    config = await apiGet('config');
-    logsData = await apiGet('logs');
+    // Parallel API calls - both requests start simultaneously
+    [config, logsData] = await Promise.all([
+      apiGet('config'),
+      apiGet('logs')
+    ]);
   } catch (e) {
     $('statusLine').innerHTML = `<span class="danger">API unreachable</span>`;
     return;
