@@ -167,7 +167,7 @@
     <div class="sectionTitle">REQUIRED</div>
     <div id="requiredList"></div>
 
-    <details>
+    <details id="optionalSection">
       <summary class="sectionTitle">OPTIONAL</summary>
       <div id="optionalList" style="margin-top:10px;"></div>
     </details>
@@ -775,35 +775,18 @@ function renderItemCard(item, rule, status) {
       // Store original card state for error recovery
       const originalBorderColor = card.style.borderColor || '';
       const originalBorderWidth = card.style.borderWidth || '';
-      let checkmarkEl = null;
 
       // Show success state IMMEDIATELY (before API call)
       const showSuccess = () => {
-        // Simple fixed-position checkmark centered on page
-        checkmarkEl = document.createElement('div');
-        checkmarkEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:#5cb85c;display:flex;align-items:center;justify-content:center;z-index:9999;box-shadow:0 4px 12px rgba(92,184,92,0.4);pointer-events:none;opacity:0;animation:checkmark 0.3s ease-out forwards;';
-        checkmarkEl.innerHTML = '<div style="color:#fff;font-size:28px;font-weight:bold;line-height:1;">✓</div>';
-        document.body.appendChild(checkmarkEl);
-        
         // Show green border flash on card
         card.style.borderColor = '#5cb85c';
         card.style.borderWidth = '2px';
-        
-        // Remove checkmark after brief display
-        setTimeout(() => {
-          if (checkmarkEl && checkmarkEl.parentNode) {
-            checkmarkEl.remove();
-          }
-        }, 400);
       };
 
       // Revert success state (for error handling)
       const revertSuccess = () => {
         card.style.borderColor = originalBorderColor;
         card.style.borderWidth = originalBorderWidth;
-        if (checkmarkEl && checkmarkEl.parentNode) {
-          checkmarkEl.remove();
-        }
       };
 
       // Show success immediately
@@ -837,6 +820,11 @@ function renderItemCard(item, rule, status) {
         const updateStatusLine = () => {
           const requiredCount = requiredEl.children.length; // Card already removed at this point
           const optionalCount = optionalEl.children.length;
+          
+          // Update optional section visibility
+          const optionalSection = $('optionalSection');
+          optionalSection.style.display = optionalCount > 0 ? 'block' : 'none';
+          
           $('statusLine').textContent = requiredCount === 0 
             ? `✅ All required items completed! • Optional: ${optionalCount}`
             : `Required: ${requiredCount} • Optional: ${optionalCount}`;
@@ -890,11 +878,6 @@ function renderItemCard(item, rule, status) {
       }
     } catch (e) {
       // Revert success state on exception (fallback for unexpected errors)
-      // Try to find and remove checkmark if it exists
-      const existingCheckmark = document.querySelector('div[style*="position:fixed"][style*="top:50%"]');
-      if (existingCheckmark && existingCheckmark.textContent.includes('✓')) {
-        existingCheckmark.remove();
-      }
       card.style.borderColor = '';
       card.style.borderWidth = '';
       toast('Save failed');
@@ -1051,6 +1034,10 @@ async function loadAndRender() {
       requiredCount++;
     }
   }
+
+  // Show/hide optional section based on whether there are optional items
+  const optionalSection = $('optionalSection');
+  optionalSection.style.display = optionalCount > 0 ? 'block' : 'none';
 
   // Show success state if all required items are completed
   if (requiredCount === 0) {
