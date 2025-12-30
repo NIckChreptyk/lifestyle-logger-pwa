@@ -722,16 +722,21 @@ function renderItemCard(item, rule, status) {
       if (res.status === 'ok') {
         // Show success indicator for boolean items
         if (type === 'boolean') {
-          // Restore opacity first, then show green border
+          // Restore opacity and show green border, keep it green until card disappears
           card.style.opacity = '1';
           card.style.borderColor = '#5cb85c';
           card.style.borderWidth = '2px';
-          card.style.transition = 'border-color 0.3s ease, border-width 0.3s ease';
-          setTimeout(() => {
-            card.style.borderColor = '#222';
-            card.style.borderWidth = '1px';
-            card.style.transition = '';
-          }, 1200);
+          card.style.transition = 'opacity 0.3s ease, border-color 0.3s ease, border-width 0.3s ease';
+          toast('Saved');
+          // Keep green border visible, then fade out and reload
+          setTimeout(async () => {
+            card.style.opacity = '0';
+            card.style.transition = 'opacity 0.3s ease';
+            setTimeout(async () => {
+              await loadAndRender();
+            }, 300);
+          }, 800);
+          return; // Exit early to prevent double reload
         }
         toast('Saved');
       } else if (res.status === 'duplicate_ignored') {
@@ -750,14 +755,7 @@ function renderItemCard(item, rule, status) {
         }
       }
 
-      // Small delay before reload to show the success animation
-      if (type === 'boolean' && res.status === 'ok') {
-        setTimeout(async () => {
-          await loadAndRender();
-        }, 1300);
-      } else {
-        await loadAndRender();
-      }
+      await loadAndRender();
     } catch (e) {
       toast('Save failed');
       console.error(e);
