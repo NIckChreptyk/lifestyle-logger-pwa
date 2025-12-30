@@ -934,10 +934,14 @@ let globalToday = '';
 function showLoadingSkeleton() {
   const requiredEl = $('requiredList');
   const optionalEl = $('optionalList');
+  const optionalSection = $('optionalSection');
   
   // Clear existing content
   requiredEl.innerHTML = '';
   optionalEl.innerHTML = '';
+  
+  // Hide optional section during loading
+  optionalSection.style.display = 'none';
   
   // Create skeleton card (single card)
   const skeletonCard = document.createElement('div');
