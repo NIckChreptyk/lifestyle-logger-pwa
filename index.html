@@ -693,34 +693,8 @@ function renderItemCard(item, rule, status) {
   row1.appendChild(statusWrap);
   row1.appendChild(inputWrap);
 
-  /* ---------- Row 2: actions ---------- */
-  const actions = document.createElement('div');
-  actions.className = 'actionsRow';
-
-  const submitBtn = document.createElement('button');
-  submitBtn.className = 'primary';
-  submitBtn.textContent = 'Submit';
-
-  const clearBtn = document.createElement('button');
-  clearBtn.textContent = 'Clear';
-  clearBtn.title = 'Dismiss this requirement from the UI for today';
-
-  actions.appendChild(submitBtn);
-  actions.appendChild(clearBtn);
-
-  /* ---------- Assemble card ---------- */
-  card.appendChild(row1);
-  card.appendChild(actions);
-
-  if (help) {
-    const h = document.createElement('div');
-    h.className = 'hint';
-    h.textContent = help;
-    card.appendChild(h);
-  }
-
-  /* ---------- Submit behavior ---------- */
-  submitBtn.addEventListener('click', async () => {
+  /* ---------- Submit function (reusable) ---------- */
+  const submitItem = async () => {
     try {
       const val =
         (type === 'boolean') ? (inputEl.checked ? 'TRUE' : 'FALSE') :
@@ -732,6 +706,12 @@ function renderItemCard(item, rule, status) {
         return;
       }
 
+      // Show loading state for boolean items
+      if (type === 'boolean') {
+        card.style.opacity = '0.6';
+        card.style.pointerEvents = 'none';
+      }
+
       const res = await apiPostLog({
         item_key: item.item_key,
         value: val,
@@ -739,24 +719,74 @@ function renderItemCard(item, rule, status) {
         notes: ''
       });
 
-      if (res.status === 'ok') toast('Saved');
-      else if (res.status === 'duplicate_ignored') toast('Already logged today');
-      else toast('API: ' + JSON.stringify(res));
+      if (res.status === 'ok') {
+        // Show success indicator for boolean items
+        if (type === 'boolean') {
+          card.style.borderColor = '#4a7c4a';
+          card.style.transition = 'border-color 0.3s ease';
+          setTimeout(() => {
+            card.style.borderColor = '';
+            card.style.transition = '';
+          }, 1000);
+        }
+        toast('Saved');
+      } else if (res.status === 'duplicate_ignored') {
+        toast('Already logged today');
+      } else {
+        toast('API: ' + JSON.stringify(res));
+      }
 
       await loadAndRender();
     } catch (e) {
       toast('Save failed');
       console.error(e);
+      // Restore card state on error
+      if (type === 'boolean') {
+        card.style.opacity = '';
+        card.style.pointerEvents = '';
+      }
     }
-  });
+  };
 
-  /* ---------- Clear behavior ---------- */
-  clearBtn.addEventListener('click', async () => {
-    const key = `dismiss_${todayYMD()}_${item.item_key}`;
-    localStorage.setItem(key, '1');
-    toast('Cleared for today');
-    await loadAndRender();
-  });
+  /* ---------- Row 2: actions (hidden for boolean items) ---------- */
+  const actions = document.createElement('div');
+  actions.className = 'actionsRow';
+  
+  if (type === 'boolean') {
+    // For boolean items, hide the actions row and auto-submit on toggle
+    actions.style.display = 'none';
+    inputEl.addEventListener('change', submitItem);
+  } else {
+    // For number/text items, show submit and clear buttons
+    const submitBtn = document.createElement('button');
+    submitBtn.className = 'primary';
+    submitBtn.textContent = 'Submit';
+    submitBtn.addEventListener('click', submitItem);
+
+    const clearBtn = document.createElement('button');
+    clearBtn.textContent = 'Clear';
+    clearBtn.title = 'Dismiss this requirement from the UI for today';
+    clearBtn.addEventListener('click', async () => {
+      const key = `dismiss_${todayYMD()}_${item.item_key}`;
+      localStorage.setItem(key, '1');
+      toast('Cleared for today');
+      await loadAndRender();
+    });
+
+    actions.appendChild(submitBtn);
+    actions.appendChild(clearBtn);
+  }
+
+  /* ---------- Assemble card ---------- */
+  card.appendChild(row1);
+  card.appendChild(actions);
+
+  if (help) {
+    const h = document.createElement('div');
+    h.className = 'hint';
+    h.textContent = help;
+    card.appendChild(h);
+  }
 
   return card;
 }
