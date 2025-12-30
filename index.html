@@ -722,21 +722,42 @@ function renderItemCard(item, rule, status) {
       if (res.status === 'ok') {
         // Show success indicator for boolean items
         if (type === 'boolean') {
-          card.style.borderColor = '#4a7c4a';
-          card.style.transition = 'border-color 0.3s ease';
+          // Restore opacity first, then show green border
+          card.style.opacity = '1';
+          card.style.borderColor = '#5cb85c';
+          card.style.borderWidth = '2px';
+          card.style.transition = 'border-color 0.3s ease, border-width 0.3s ease';
           setTimeout(() => {
-            card.style.borderColor = '';
+            card.style.borderColor = '#222';
+            card.style.borderWidth = '1px';
             card.style.transition = '';
-          }, 1000);
+          }, 1200);
         }
         toast('Saved');
       } else if (res.status === 'duplicate_ignored') {
         toast('Already logged today');
+        // Restore opacity on duplicate
+        if (type === 'boolean') {
+          card.style.opacity = '1';
+          card.style.pointerEvents = '';
+        }
       } else {
         toast('API: ' + JSON.stringify(res));
+        // Restore opacity on error
+        if (type === 'boolean') {
+          card.style.opacity = '1';
+          card.style.pointerEvents = '';
+        }
       }
 
-      await loadAndRender();
+      // Small delay before reload to show the success animation
+      if (type === 'boolean' && res.status === 'ok') {
+        setTimeout(async () => {
+          await loadAndRender();
+        }, 1300);
+      } else {
+        await loadAndRender();
+      }
     } catch (e) {
       toast('Save failed');
       console.error(e);
