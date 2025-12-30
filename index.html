@@ -772,12 +772,44 @@ function renderItemCard(item, rule, status) {
         return;
       }
 
-      // Show loading state for boolean items
-      if (type === 'boolean') {
-        card.style.opacity = '0.6';
-        card.style.pointerEvents = 'none';
-      }
+      // Store original card state for error recovery
+      const originalBorderColor = card.style.borderColor || '';
+      const originalBorderWidth = card.style.borderWidth || '';
+      let checkmarkEl = null;
 
+      // Show success state IMMEDIATELY (before API call)
+      const showSuccess = () => {
+        // Simple fixed-position checkmark centered on page
+        checkmarkEl = document.createElement('div');
+        checkmarkEl.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:#5cb85c;display:flex;align-items:center;justify-content:center;z-index:9999;box-shadow:0 4px 12px rgba(92,184,92,0.4);pointer-events:none;opacity:0;animation:checkmark 0.3s ease-out forwards;';
+        checkmarkEl.innerHTML = '<div style="color:#fff;font-size:28px;font-weight:bold;line-height:1;">✓</div>';
+        document.body.appendChild(checkmarkEl);
+        
+        // Show green border flash on card
+        card.style.borderColor = '#5cb85c';
+        card.style.borderWidth = '2px';
+        
+        // Remove checkmark after brief display
+        setTimeout(() => {
+          if (checkmarkEl && checkmarkEl.parentNode) {
+            checkmarkEl.remove();
+          }
+        }, 400);
+      };
+
+      // Revert success state (for error handling)
+      const revertSuccess = () => {
+        card.style.borderColor = originalBorderColor;
+        card.style.borderWidth = originalBorderWidth;
+        if (checkmarkEl && checkmarkEl.parentNode) {
+          checkmarkEl.remove();
+        }
+      };
+
+      // Show success immediately
+      showSuccess();
+
+      // Now await API call in background
       const res = await apiPostLog({
         item_key: item.item_key,
         value: val,
@@ -796,22 +828,6 @@ function renderItemCard(item, rule, status) {
           globalLogIndex.latest.set(itemKey, globalToday);
         }
         
-        // Show success indicator - simple page-centered checkmark with fade-in
-        const showSuccess = () => {
-          // Simple fixed-position checkmark centered on page
-          const checkmark = document.createElement('div');
-          checkmark.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:48px;height:48px;border-radius:50%;background:#5cb85c;display:flex;align-items:center;justify-content:center;z-index:9999;box-shadow:0 4px 12px rgba(92,184,92,0.4);pointer-events:none;opacity:0;animation:checkmark 0.3s ease-out forwards;';
-          checkmark.innerHTML = '<div style="color:#fff;font-size:28px;font-weight:bold;line-height:1;">✓</div>';
-          document.body.appendChild(checkmark);
-          
-          // Show green border flash on card
-          card.style.borderColor = '#5cb85c';
-          card.style.borderWidth = '2px';
-          
-          // Remove checkmark after brief display
-          setTimeout(() => checkmark.remove(), 400);
-        };
-        
         // Determine which list this card belongs to (before removal)
         const requiredEl = $('requiredList');
         const optionalEl = $('optionalList');
@@ -827,9 +843,6 @@ function renderItemCard(item, rule, status) {
         };
         
         if (type === 'boolean') {
-          // Restore opacity and show green border, keep it green until card disappears
-          card.style.opacity = '1';
-          showSuccess();
           toast('Saved');
           // Keep green border visible, then fade out (no reload needed!)
           setTimeout(() => {
@@ -848,7 +861,6 @@ function renderItemCard(item, rule, status) {
           return; // Exit early
         } else {
           // For number/text items: show checkmark, then smooth slide-out
-          showSuccess();
           toast('Saved');
           
           // After checkmark animation, slide out the card (no reload needed!)
@@ -868,30 +880,25 @@ function renderItemCard(item, rule, status) {
           return; // Exit early
         }
       } else if (res.status === 'duplicate_ignored') {
+        // Revert success state on duplicate
+        revertSuccess();
         toast('Already logged today');
-        // Restore opacity on duplicate
-        if (type === 'boolean') {
-          card.style.opacity = '1';
-          card.style.pointerEvents = '';
-        }
       } else {
+        // Revert success state on error
+        revertSuccess();
         toast('API: ' + JSON.stringify(res));
-        // Restore opacity on error
-        if (type === 'boolean') {
-          card.style.opacity = '1';
-          card.style.pointerEvents = '';
-        }
       }
-
-      await loadAndRender();
     } catch (e) {
+      // Revert success state on exception (fallback for unexpected errors)
+      // Try to find and remove checkmark if it exists
+      const existingCheckmark = document.querySelector('div[style*="position:fixed"][style*="top:50%"]');
+      if (existingCheckmark && existingCheckmark.textContent.includes('✓')) {
+        existingCheckmark.remove();
+      }
+      card.style.borderColor = '';
+      card.style.borderWidth = '';
       toast('Save failed');
       console.error(e);
-      // Restore card state on error
-      if (type === 'boolean') {
-        card.style.opacity = '';
-        card.style.pointerEvents = '';
-      }
     }
   };
 
