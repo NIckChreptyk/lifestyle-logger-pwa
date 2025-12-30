@@ -84,6 +84,15 @@
       from { transform: translateX(0); opacity: 1; }
       to { transform: translateX(-100%); opacity: 0; }
     }
+    @keyframes skeletonPulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .skeleton {
+      background: #2a2a2a;
+      border-radius: 4px;
+      animation: skeletonPulse 1.5s ease-in-out infinite;
+    }
 
     /* =========================
       PROFESSIONAL CARD ROW LAYOUT (GRID)
@@ -894,6 +903,37 @@ function renderItemCard(item, rule, status) {
 /* ============================================================
   SECTION 8 — MAIN LOAD + RENDER LOOP
 ============================================================ */
+function showLoadingSkeleton() {
+  const requiredEl = $('requiredList');
+  const optionalEl = $('optionalList');
+  
+  // Clear existing content
+  requiredEl.innerHTML = '';
+  optionalEl.innerHTML = '';
+  
+  // Create skeleton cards
+  for (let i = 0; i < 3; i++) {
+    const skeletonCard = document.createElement('div');
+    skeletonCard.className = 'card';
+    skeletonCard.innerHTML = `
+      <div class="itemRow">
+        <div class="itemLabel" style="flex:1;">
+          <div class="skeleton" style="height:20px;width:70%;margin-bottom:8px;"></div>
+          <div class="skeleton" style="height:14px;width:50%;"></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="skeleton" style="height:40px;width:100px;border-radius:8px;"></div>
+        </div>
+      </div>
+      <div class="actionsRow">
+        <div class="skeleton" style="height:36px;width:80px;border-radius:12px;"></div>
+        <div class="skeleton" style="height:36px;width:70px;border-radius:12px;"></div>
+      </div>
+    `;
+    requiredEl.appendChild(skeletonCard);
+  }
+}
+
 async function loadAndRender() {
   const today = todayYMD();
   $('statusLine').textContent = `Today: ${today}`;
@@ -903,6 +943,9 @@ async function loadAndRender() {
     $('statusLine').innerHTML = `<span class="danger">Missing API config</span>`;
     return;
   }
+
+  // Show loading skeleton immediately
+  showLoadingSkeleton();
 
   try {
     await ensureDeviceToken();
