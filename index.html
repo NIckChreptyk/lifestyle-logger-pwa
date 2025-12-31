@@ -496,6 +496,8 @@ async function apiPostLog(payload) {
   u.searchParams.set('value', String(payload.value));
   if (payload.units) u.searchParams.set('units', payload.units);
   if (payload.notes) u.searchParams.set('notes', payload.notes);
+  // Send date explicitly using local timezone to avoid timezone mismatch
+  u.searchParams.set('date', todayYMD());
 
   const res = await fetch(u.toString(), { method:'GET' });
   return await res.json();
