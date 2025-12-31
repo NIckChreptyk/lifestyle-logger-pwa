@@ -402,6 +402,48 @@ function mostRecentScheduledDate(weekdaysLower, refDateYMD) {
   return null;
 }
 
+// Calculate the original due date for a rule (only for nag_if_missed rules)
+function calculateDueAt(rule, logIndex, today, overdue) {
+  const schedule = String(rule.schedule_type || '').toLowerCase();
+  const last = logIndex.latest.get(String(rule.item_key || '')) || null;
+  
+  if (schedule === 'daily') {
+    // For daily: if overdue, due_at is yesterday; otherwise today
+    if (overdue) {
+      const yesterday = new Date(today + "T00:00:00");
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yyyy = yesterday.getFullYear();
+      const mm = String(yesterday.getMonth()+1).padStart(2,'0');
+      const dd = String(yesterday.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    return today;
+  }
+  
+  if (schedule === 'interval_days') {
+    const n = Number(rule.interval_days || 0);
+    if (!n || n < 1) return today;
+    if (!last) return today;
+    // due_at = last logged date + interval
+    const lastDate = new Date(last + "T00:00:00");
+    lastDate.setDate(lastDate.getDate() + n);
+    const yyyy = lastDate.getFullYear();
+    const mm = String(lastDate.getMonth()+1).padStart(2,'0');
+    const dd = String(lastDate.getDate()).padStart(2,'0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+  
+  if (schedule === 'weekly') {
+    const days = parseWeekdays(rule.weekly_days);
+    if (!days.length) return today;
+    const lastDue = mostRecentScheduledDate(days, today);
+    return lastDue || today;
+  }
+  
+  // Default fallback
+  return today;
+}
+
 /* ============================================================
   SECTION 4 — AUTH (PIN → DEVICE TOKEN)
 ============================================================ */
@@ -498,6 +540,11 @@ async function apiPostLog(payload) {
   if (payload.notes) u.searchParams.set('notes', payload.notes);
   // Send date explicitly using local timezone to avoid timezone mismatch
   u.searchParams.set('date', todayYMD());
+  
+  // Adherence tracking fields (only if nag_if_missed is true)
+  if (payload.rule_id) u.searchParams.set('rule_id', payload.rule_id);
+  if (payload.due_at) u.searchParams.set('due_at', payload.due_at);
+  if (payload.adherence_status) u.searchParams.set('adherence_status', payload.adherence_status);
 
   const res = await fetch(u.toString(), { method:'GET' });
   return await res.json();
@@ -638,16 +685,56 @@ function classifyRule(rule, logIndex, today) {
 
   if (loggedToday) return { show:false, satisfied:true };
 
-  if (schedule === 'daily') return { show:true, overdue:false };
+  let overdue = false;
+  let dueAt = null;
+
+  if (schedule === 'daily') {
+    overdue = false; // Daily is never overdue on the day it's due
+    if (nag) {
+      // For daily with nag, check if it was missed yesterday
+      const yesterday = new Date(today + "T00:00:00");
+      yesterday.setDate(yesterday.getDate() - 1);
+      const yyyy = yesterday.getFullYear();
+      const mm = String(yesterday.getMonth()+1).padStart(2,'0');
+      const dd = String(yesterday.getDate()).padStart(2,'0');
+      const yesterdayYMD = `${yyyy}-${mm}-${dd}`;
+      const loggedYesterday = logIndex.loggedOn.get(itemKey)?.has(yesterdayYMD) || false;
+      if (!loggedYesterday) {
+        overdue = true;
+        dueAt = yesterdayYMD;
+      } else {
+        dueAt = today;
+      }
+    }
+    return { show:true, overdue, dueAt };
+  }
 
   if (schedule === 'interval_days') {
     const n = Number(rule.interval_days || 0);
-    if (!n || n < 1) return { show:true, overdue:false };
-    if (!last) return { show:true, overdue:false };
+    if (!n || n < 1) {
+      if (nag) dueAt = today;
+      return { show:true, overdue:false, dueAt };
+    }
+    if (!last) {
+      if (nag) dueAt = today;
+      return { show:true, overdue:false, dueAt };
+    }
     const delta = daysBetween(last, today);
     if (delta < n) return { show:false };
-    if (delta === n) return { show:true, overdue:false };
-    return { show:true, overdue:true };
+    if (delta === n) {
+      if (nag) dueAt = today;
+      return { show:true, overdue:false, dueAt };
+    }
+    overdue = true;
+    if (nag) {
+      const lastDate = new Date(last + "T00:00:00");
+      lastDate.setDate(lastDate.getDate() + n);
+      const yyyy = lastDate.getFullYear();
+      const mm = String(lastDate.getMonth()+1).padStart(2,'0');
+      const dd = String(lastDate.getDate()).padStart(2,'0');
+      dueAt = `${yyyy}-${mm}-${dd}`;
+    }
+    return { show:true, overdue, dueAt };
   }
 
   if (schedule === 'weekly') {
@@ -656,18 +743,29 @@ function classifyRule(rule, logIndex, today) {
 
     const todayWd = weekdayName(new Date(today + "T00:00:00"));
     const dueToday = days.includes(todayWd);
-    if (dueToday) return { show:true, overdue:false };
+    if (dueToday) {
+      if (nag) dueAt = today;
+      return { show:true, overdue:false, dueAt };
+    }
     if (!nag) return { show:false };
 
     const lastDue = mostRecentScheduledDate(days, today);
     if (!lastDue) return { show:false };
-    if (!last) return { show:true, overdue:true };
-    if (last < lastDue) return { show:true, overdue:true };
+    if (!last) {
+      dueAt = lastDue;
+      return { show:true, overdue:true, dueAt };
+    }
+    if (last < lastDue) {
+      overdue = true;
+      dueAt = lastDue;
+      return { show:true, overdue, dueAt };
+    }
     return { show:false };
   }
 
   // default
-  return { show:true, overdue:false };
+  if (nag) dueAt = today;
+  return { show:true, overdue:false, dueAt };
 }
 
 /* ============================================================
@@ -790,13 +888,25 @@ function renderItemCard(item, rule, status) {
       // Show success immediately
       showSuccess();
 
-      // Now await API call in background
-      const res = await apiPostLog({
+      // Prepare adherence tracking fields (only if nag_if_missed is true)
+      const nag = String(rule.nag_if_missed || '').toLowerCase() === 'true';
+      const logPayload = {
         item_key: item.item_key,
         value: val,
         units: units || '',
         notes: ''
-      });
+      };
+      
+      if (nag) {
+        // Calculate rule_id (use existing rule_id or generate it)
+        const ruleId = rule.rule_id || `${item.item_key}_${rule.schedule_type}`;
+        logPayload.rule_id = ruleId;
+        logPayload.due_at = status.dueAt || todayYMD();
+        logPayload.adherence_status = status.overdue ? 'Late' : 'On_time';
+      }
+
+      // Now await API call in background
+      const res = await apiPostLog(logPayload);
 
       if (res.status === 'ok') {
         // Optimistic UI update: update logIndex locally
@@ -902,6 +1012,29 @@ function renderItemCard(item, rule, status) {
     clearBtn.textContent = 'Clear';
     clearBtn.title = 'Dismiss this requirement from the UI for today';
     clearBtn.addEventListener('click', async () => {
+      const nag = String(rule.nag_if_missed || '').toLowerCase() === 'true';
+      
+      // If nag_if_missed is true, write a "Skipped" log entry
+      if (nag) {
+        try {
+          const ruleId = rule.rule_id || `${item.item_key}_${rule.schedule_type}`;
+          const dueAt = status.dueAt || todayYMD();
+          
+          await apiPostLog({
+            item_key: item.item_key,
+            value: '',
+            units: '',
+            notes: '',
+            rule_id: ruleId,
+            due_at: dueAt,
+            adherence_status: 'Skipped'
+          });
+        } catch (e) {
+          console.error('Failed to log skipped entry:', e);
+          // Continue with dismiss even if log fails
+        }
+      }
+      
       const key = `dismiss_${todayYMD()}_${item.item_key}`;
       localStorage.setItem(key, '1');
       toast('Cleared for today');
